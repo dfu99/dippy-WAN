@@ -432,4 +432,10 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
 # ── Launch ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    demo.queue().launch(share=True)
+    app, local_url, share_url = demo.queue().launch(
+        share=True,
+        inline=False,
+        debug=True,
+    )
+    print("Local URL:", local_url)
+    print("Share URL:", share_url)
