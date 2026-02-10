@@ -1,3 +1,10 @@
+import os
+
+# ── Cache setup (must be set BEFORE importing HF libraries) ──────────────────
+CACHE_DIR = "/content/drive/My Drive/huggingface_cache"
+os.environ["HF_HOME"] = CACHE_DIR
+os.environ["HF_HUB_CACHE"] = CACHE_DIR
+
 import torch
 from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, UniPCMultistepScheduler
 from diffusers.utils import export_to_video
@@ -9,7 +16,6 @@ from huggingface_hub import hf_hub_download
 import numpy as np
 from PIL import Image
 import random
-import os
 import openai
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -17,7 +23,6 @@ import openai
 MODEL_ID = "Wan-AI/Wan2.1-I2V-14B-480P-Diffusers"
 LORA_REPO_ID = "Kijai/WanVideo_comfy"
 LORA_FILENAME = "Wan21_CausVid_14B_T2V_lora_rank32.safetensors"
-CACHE_DIR = "/content/drive/My Drive/huggingface_cache"
 
 MOD_VALUE = 32
 DEFAULT_H_SLIDER_VALUE = 512
@@ -62,7 +67,7 @@ pipe.scheduler = UniPCMultistepScheduler.from_config(
 )
 pipe.to("cuda")
 
-causvid_path = hf_hub_download(repo_id=LORA_REPO_ID, filename=LORA_FILENAME)
+causvid_path = hf_hub_download(repo_id=LORA_REPO_ID, filename=LORA_FILENAME, cache_dir=CACHE_DIR)
 pipe.load_lora_weights(causvid_path, adapter_name="causvid_lora")
 pipe.set_adapters(["causvid_lora"], adapter_weights=[0.95])
 pipe.fuse_lora()
