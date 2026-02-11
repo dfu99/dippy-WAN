@@ -12,6 +12,41 @@ DEFAULT_LOCAL_CACHE_DIR = "/content/hf_cache"
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 
+def _safe_pkg_version(name):
+    try:
+        return pkg_version(name)
+    except Exception:
+        return None
+
+
+def _version_tuple(version_str):
+    parts = re.split(r"[.+-]", version_str)
+    values = []
+    for part in parts:
+        if part.isdigit():
+            values.append(int(part))
+        else:
+            break
+    return tuple(values)
+
+
+def _check_diffusers_transformers_compat():
+    """
+    Transformers 5 removed FLAX_WEIGHTS_NAME from transformers.utils.
+    Diffusers < 0.35.2 may still import it.
+    """
+    diffusers_v = _safe_pkg_version("diffusers")
+    transformers_v = _safe_pkg_version("transformers")
+    if not diffusers_v or not transformers_v:
+        return
+    if _version_tuple(transformers_v) >= (5, 0, 0) and _version_tuple(diffusers_v) < (0, 35, 2):
+        raise RuntimeError(
+            "Incompatible package versions detected: "
+            f"diffusers=={diffusers_v}, transformers=={transformers_v}. "
+            "Use diffusers>=0.35.2 with transformers>=5, or downgrade transformers to <5."
+        )
+
+
 def _configure_cache_dirs():
     # Prefer externally configured cache paths (from notebook), then fall back.
     cache_dir = (
@@ -32,7 +67,18 @@ def _configure_cache_dirs():
 CACHE_DIR = _configure_cache_dirs()
 
 import torch
-from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, UniPCMultistepScheduler
+_check_diffusers_transformers_compat()
+try:
+    from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, UniPCMultistepScheduler
+except Exception as exc:
+    raise RuntimeError(
+        "Failed to import diffusers WAN pipeline dependencies. "
+        "Please run notebook Cell 3 to install a compatible stack, then relaunch. "
+        f"Detected versions: diffusers={_safe_pkg_version('diffusers')}, "
+        f"transformers={_safe_pkg_version('transformers')}, "
+        f"accelerate={_safe_pkg_version('accelerate')}, "
+        f"huggingface_hub={_safe_pkg_version('huggingface_hub')}"
+    ) from exc
 from diffusers.utils import export_to_video
 from transformers import CLIPVisionModel
 import gradio as gr
@@ -75,12 +121,18 @@ default_negative_prompt = (
 )
 
 DEFAULT_AVATAR_URL = "https://upload.wikimedia.org/wikipedia/en/d/db/Clippy-letter.PNG"
-PINNED_DIFFUSERS_COMMIT = "3a23d941f559759195dd30b5d206008f9e34f2bb"
+PINNED_DIFFUSERS_VERSION = "0.36.0"
+PINNED_TRANSFORMERS_VERSION = "5.1.0"
+PINNED_ACCELERATE_VERSION = "1.12.0"
+PINNED_HF_HUB_VERSION = "1.4.1"
+PINNED_GRADIO_VERSION = "6.5.1"
 COLAB_PINNED_INSTALL_CMD = (
     "!pip install -q --upgrade "
-    f"git+https://github.com/huggingface/diffusers.git@{PINNED_DIFFUSERS_COMMIT} "
-    "transformers==4.55.4 accelerate==1.10.0 huggingface_hub==0.34.4 "
-    "gradio==5.30.0 "
+    f"diffusers=={PINNED_DIFFUSERS_VERSION} "
+    f"transformers=={PINNED_TRANSFORMERS_VERSION} "
+    f"accelerate=={PINNED_ACCELERATE_VERSION} "
+    f"huggingface_hub=={PINNED_HF_HUB_VERSION} "
+    f"gradio=={PINNED_GRADIO_VERSION} "
     "safetensors sentencepiece peft ftfy imageio-ffmpeg opencv-python"
 )
 
@@ -92,7 +144,7 @@ def _print_runtime_versions():
     print(f"- HF_ASSETS_CACHE: {os.environ.get('HF_ASSETS_CACHE')}")
     print(f"- HF_XET_CACHE: {os.environ.get('HF_XET_CACHE')}")
     print("Runtime package versions:")
-    for pkg in ("diffusers", "transformers", "accelerate", "huggingface_hub"):
+    for pkg in ("diffusers", "transformers", "accelerate", "huggingface_hub", "gradio"):
         try:
             print(f"- {pkg}: {pkg_version(pkg)}")
         except Exception:
