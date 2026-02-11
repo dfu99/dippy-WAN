@@ -570,7 +570,7 @@ def generate_trajectory(
     seed, randomize_seed,
     progress=gr.Progress(track_tqdm=True),
 ):
-    """Chain WAN I2V generations with frame continuity across sentences."""
+    """Generate loopable sentence clips with forward + reset passes."""
     sentences = [s.strip() for s in sentences_text.strip().splitlines() if s.strip()]
     if not sentences:
         raise gr.Error("Please enter at least one sentence.")
@@ -589,31 +589,64 @@ def generate_trajectory(
     num_frames = _nearest_valid_num_frames(requested_frames)
     base_seed = random.randint(0, MAX_SEED) if randomize_seed else int(seed)
 
-    current_image = input_image.resize((target_w, target_h))
+    ground_state_image = _frame_to_pil(input_image.resize((target_w, target_h)))
     clips = []
     all_frames = []
+    total_passes = max(1, len(sentences) * 2)
 
     for i, sentence in enumerate(sentences):
-        progress(i / len(sentences), desc=f"Generating clip {i + 1}/{len(sentences)}")
+        forward_seed = base_seed + (i * 2)
+        backward_seed = base_seed + (i * 2) + 1
 
-        prompt = (
+        progress((i * 2) / total_passes, desc=f"Forward pass {i + 1}/{len(sentences)}")
+        forward_prompt = (
             f"A character acts out: {sentence}. "
             "Smooth animation, pantomime, expressive gestures."
         )
-        clip_seed = base_seed + i
-
         with torch.inference_mode():
-            output_frames = pipe(
-                image=current_image,
-                prompt=prompt,
+            forward_frames = pipe(
+                image=ground_state_image,
+                prompt=forward_prompt,
                 negative_prompt=negative_prompt,
                 height=target_h,
                 width=target_w,
                 num_frames=num_frames,
                 guidance_scale=float(guidance_scale),
                 num_inference_steps=int(steps),
-                generator=torch.Generator(device="cuda").manual_seed(clip_seed),
+                generator=torch.Generator(device="cuda").manual_seed(forward_seed),
             ).frames[0]
+        if not forward_frames:
+            raise gr.Error("Forward generation produced no frames.")
+        forward_frames = [_frame_to_pil(frame) for frame in forward_frames]
+        forward_frames[0] = ground_state_image.copy()
+        forward_last_frame = forward_frames[-1].copy()
+
+        progress((i * 2 + 1) / total_passes, desc=f"Reset pass {i + 1}/{len(sentences)}")
+        backward_prompt = (
+            f"The same character naturally returns from acting out '{sentence}' "
+            "back to the original neutral starting pose. "
+            "Smooth animation, pantomime, expressive gestures."
+        )
+        with torch.inference_mode():
+            backward_frames = pipe(
+                image=forward_last_frame,
+                prompt=backward_prompt,
+                negative_prompt=negative_prompt,
+                height=target_h,
+                width=target_w,
+                num_frames=num_frames,
+                guidance_scale=float(guidance_scale),
+                num_inference_steps=int(steps),
+                generator=torch.Generator(device="cuda").manual_seed(backward_seed),
+            ).frames[0]
+        if not backward_frames:
+            raise gr.Error("Reset generation produced no frames.")
+        backward_frames = [_frame_to_pil(frame) for frame in backward_frames]
+        backward_frames[0] = forward_last_frame
+        backward_frames[-1] = ground_state_image.copy()
+
+        # Forward + reset, skipping one duplicate boundary frame.
+        output_frames = forward_frames + backward_frames[1:]
 
         # Save individual clip
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
@@ -628,9 +661,7 @@ def generate_trajectory(
             all_frames.extend(output_frames)
         else:
             all_frames.extend(output_frames[1:])
-
-        # Last frame becomes input for next clip (frame continuity)
-        current_image = _frame_to_pil(output_frames[-1])
+    progress(1.0, desc="Finished")
 
     # Export full stitched trajectory
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
@@ -659,9 +690,8 @@ def generate_trajectory(
 with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
     gr.Markdown("# Dippy Animation Trajectory Generator")
     gr.Markdown(
-        "Generate chained video animations with frame continuity — "
-        "the last frame of each clip becomes the first frame of the next, "
-        "creating a seamless visual trajectory."
+        "Generate sentence clips with a forward action pass plus a reset pass, "
+        "so each clip starts and ends in the same ground-state pose for easy reordering."
     )
 
     # Hidden state
@@ -694,7 +724,10 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
                 step=0.1,
                 value=DEFAULT_CLIP_DURATION,
                 label="Clip Duration (seconds)",
-                info=f"Per-clip duration. {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps.",
+                info=(
+                    f"Per-pass duration. Each sentence runs forward + reset "
+                    f"(~2x this length). {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps."
+                ),
             )
             steps_slider = gr.Slider(
                 minimum=1, maximum=30, step=1, value=4,
