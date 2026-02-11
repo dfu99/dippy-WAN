@@ -1,4 +1,10 @@
 import os
+import platform
+import re
+import stat
+import sys
+from pathlib import Path
+from urllib.request import urlretrieve
 from importlib.metadata import version as pkg_version
 
 # ── Cache setup (must be set BEFORE importing HF libraries) ──────────────────
@@ -74,6 +80,7 @@ COLAB_PINNED_INSTALL_CMD = (
     "!pip install -q --upgrade "
     f"git+https://github.com/huggingface/diffusers.git@{PINNED_DIFFUSERS_COMMIT} "
     "transformers==4.55.4 accelerate==1.10.0 huggingface_hub==0.34.4 "
+    "gradio==5.30.0 "
     "safetensors sentencepiece peft ftfy imageio-ffmpeg opencv-python"
 )
 
@@ -209,6 +216,125 @@ def _repair_text_encoder_embeddings_if_needed(text_encoder):
         "Text encoder embeddings remain untied after tie_weights(). "
         "Please reinstall pinned dependencies and restart runtime."
     )
+
+
+def _parse_version_tuple(version_str):
+    return tuple(int(part) for part in version_str.split("."))
+
+
+def _gradio_platform_tags():
+    if sys.platform.startswith("linux"):
+        os_tag = "linux"
+    elif sys.platform == "darwin":
+        os_tag = "darwin"
+    elif sys.platform.startswith("win"):
+        os_tag = "windows"
+    else:
+        return None, None
+
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        arch_tag = "amd64"
+    elif machine in ("aarch64", "arm64"):
+        arch_tag = "aarch64"
+    else:
+        arch_tag = machine
+
+    return os_tag, arch_tag
+
+
+def _discover_expected_frpc_name(gradio_dir, os_tag, arch_tag):
+    pattern = re.compile(rf"frpc_{os_tag}_{arch_tag}_v(\d+\.\d+)")
+    matches = []
+    for py_file in gradio_dir.glob("*.py"):
+        try:
+            text = py_file.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for m in pattern.finditer(text):
+            matches.append((m.group(0), m.group(1)))
+    if not matches:
+        return None
+    matches.sort(key=lambda x: _parse_version_tuple(x[1]), reverse=True)
+    return matches[0][0]
+
+
+def _ensure_gradio_frpc_binary():
+    """
+    Ensure Gradio share-tunnel client exists and is executable.
+    This avoids intermittent "Could not create share link. Missing file: ... frpc ..."
+    failures in Colab.
+    """
+    try:
+        import gradio
+    except Exception as exc:
+        print(f"Could not import gradio for frpc preflight: {exc}")
+        return
+
+    os_tag, arch_tag = _gradio_platform_tags()
+    if not os_tag or not arch_tag:
+        print("Unsupported platform for frpc preflight; skipping.")
+        return
+
+    gradio_dir = Path(gradio.__file__).resolve().parent
+    expected_name = _discover_expected_frpc_name(gradio_dir, os_tag, arch_tag)
+    candidate_names = []
+    if expected_name:
+        candidate_names.append(expected_name)
+    candidate_names.extend([
+        f"frpc_{os_tag}_{arch_tag}_v0.3",
+        f"frpc_{os_tag}_{arch_tag}_v0.2",
+    ])
+    # De-duplicate while preserving order.
+    candidate_names = list(dict.fromkeys(candidate_names))
+
+    for name in candidate_names:
+        path = gradio_dir / name
+        if path.exists():
+            try:
+                path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            except OSError:
+                pass
+            print(f"Found gradio tunnel binary: {path}")
+            return
+
+    for name in candidate_names:
+        version = name.rsplit("_v", 1)[-1]
+        url = f"https://cdn-media.huggingface.co/frpc-gradio-{version}/frpc_{os_tag}_{arch_tag}"
+        dest = gradio_dir / name
+        try:
+            print(f"Downloading gradio tunnel binary: {url}")
+            urlretrieve(url, dest)
+            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            print(f"Installed gradio tunnel binary: {dest}")
+            return
+        except Exception as exc:
+            print(f"frpc download attempt failed ({url}): {exc}")
+
+    print(
+        "Unable to install gradio tunnel binary automatically. "
+        "If share links fail, rerun with internet access and check https://status.gradio.app"
+    )
+
+
+def _launch_with_share(demo):
+    _ensure_gradio_frpc_binary()
+    app, local_url, share_url = demo.queue().launch(
+        share=True,
+        inline=False,
+        debug=True,
+        show_error=True,
+    )
+    print("Local URL:", local_url)
+    if share_url:
+        print("Share URL:", share_url)
+    else:
+        print(
+            "Share URL was not created. "
+            "Possible causes: frpc binary blocked/missing, internet egress restrictions, "
+            "or gradio share service outage (https://status.gradio.app)."
+        )
+    return app, local_url, share_url
 
 # ── Model Loading ────────────────────────────────────────────────────────────
 
@@ -595,10 +721,4 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
 # ── Launch ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app, local_url, share_url = demo.queue().launch(
-        share=True,
-        inline=False,
-        debug=True,
-    )
-    print("Local URL:", local_url)
-    print("Share URL:", share_url)
+    _launch_with_share(demo)
