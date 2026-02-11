@@ -370,13 +370,26 @@ def _ensure_gradio_frpc_binary():
 
 
 def _launch_with_share(demo):
+    in_colab = "google.colab" in sys.modules
+    if in_colab:
+        print("Detected Colab runtime: enabling inline app rendering.")
     _ensure_gradio_frpc_binary()
-    app, local_url, share_url = demo.queue().launch(
-        share=True,
-        inline=False,
-        debug=True,
-        show_error=True,
-    )
+    try:
+        app, local_url, share_url = demo.queue().launch(
+            share=True,
+            inline=in_colab,
+            debug=True,
+            show_error=True,
+        )
+    except Exception as exc:
+        print(f"Share-enabled launch failed: {exc}")
+        print("Retrying launch without share tunnel.")
+        app, local_url, share_url = demo.queue().launch(
+            share=False,
+            inline=in_colab,
+            debug=True,
+            show_error=True,
+        )
     print("Local URL:", local_url)
     if share_url:
         print("Share URL:", share_url)
@@ -386,6 +399,8 @@ def _launch_with_share(demo):
             "Possible causes: frpc binary blocked/missing, internet egress restrictions, "
             "or gradio share service outage (https://status.gradio.app)."
         )
+        if in_colab:
+            print("Use the inline Gradio app rendered in this output cell.")
     return app, local_url, share_url
 
 # ── Model Loading ────────────────────────────────────────────────────────────
