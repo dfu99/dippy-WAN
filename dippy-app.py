@@ -2,11 +2,27 @@ import os
 from importlib.metadata import version as pkg_version
 
 # ── Cache setup (must be set BEFORE importing HF libraries) ──────────────────
-CACHE_DIR = "/content/drive/My Drive/huggingface_cache"
-os.environ["HF_HOME"] = CACHE_DIR
-os.environ["HF_HUB_CACHE"] = CACHE_DIR
-os.environ["HF_ASSETS_CACHE"] = os.path.join(CACHE_DIR, "assets")
-os.environ["HF_XET_CACHE"] = os.path.join(CACHE_DIR, "xet")
+DEFAULT_LOCAL_CACHE_DIR = "/content/hf_cache"
+
+
+def _configure_cache_dirs():
+    # Prefer externally configured cache paths (from notebook), then fall back.
+    cache_dir = (
+        os.environ.get("HF_HUB_CACHE")
+        or os.environ.get("HF_HOME")
+        or os.environ.get("DIPPY_CACHE_DIR")
+        or DEFAULT_LOCAL_CACHE_DIR
+    )
+    os.environ.setdefault("HF_HOME", cache_dir)
+    os.environ.setdefault("HF_HUB_CACHE", cache_dir)
+    os.environ.setdefault("HF_ASSETS_CACHE", os.path.join(cache_dir, "assets"))
+    os.environ.setdefault("HF_XET_CACHE", os.path.join(cache_dir, "xet"))
+    for key in ("HF_HOME", "HF_HUB_CACHE", "HF_ASSETS_CACHE", "HF_XET_CACHE"):
+        os.makedirs(os.environ[key], exist_ok=True)
+    return os.environ["HF_HUB_CACHE"]
+
+
+CACHE_DIR = _configure_cache_dirs()
 
 import torch
 from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, UniPCMultistepScheduler
@@ -62,6 +78,11 @@ COLAB_PINNED_INSTALL_CMD = (
 
 
 def _print_runtime_versions():
+    print("Cache directories:")
+    print(f"- HF_HOME: {os.environ.get('HF_HOME')}")
+    print(f"- HF_HUB_CACHE: {os.environ.get('HF_HUB_CACHE')}")
+    print(f"- HF_ASSETS_CACHE: {os.environ.get('HF_ASSETS_CACHE')}")
+    print(f"- HF_XET_CACHE: {os.environ.get('HF_XET_CACHE')}")
     print("Runtime package versions:")
     for pkg in ("diffusers", "transformers", "accelerate", "huggingface_hub"):
         try:
@@ -70,6 +91,39 @@ def _print_runtime_versions():
             print(f"- {pkg}: not installed")
     print("Recommended Colab install cell:")
     print(COLAB_PINNED_INSTALL_CMD)
+
+
+def _prune_tiny_safetensors(cache_dir, repo_id, min_bytes=16 * 1024):
+    """
+    Remove obviously bad shard placeholders (e.g., 79-byte link stubs)
+    so HF can re-download valid files.
+    """
+    repo_cache_dir = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
+    if not os.path.isdir(repo_cache_dir):
+        return
+    removed = []
+    for root, _, filenames in os.walk(repo_cache_dir):
+        for filename in filenames:
+            if not filename.endswith(".safetensors"):
+                continue
+            path = os.path.join(root, filename)
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                continue
+            if size < min_bytes:
+                try:
+                    os.remove(path)
+                    removed.append((path, size))
+                except OSError:
+                    continue
+    if removed:
+        print(
+            f"Removed {len(removed)} tiny safetensors files from {repo_cache_dir} "
+            f"(threshold={min_bytes} bytes)."
+        )
+        for path, size in removed:
+            print(f"  - {path} ({size} bytes)")
 
 
 def _repair_text_encoder_embeddings_if_needed(text_encoder):
@@ -113,6 +167,8 @@ def _repair_text_encoder_embeddings_if_needed(text_encoder):
 # ── Model Loading ────────────────────────────────────────────────────────────
 
 _print_runtime_versions()
+_prune_tiny_safetensors(CACHE_DIR, MODEL_ID)
+_prune_tiny_safetensors(CACHE_DIR, LORA_REPO_ID)
 
 image_encoder = CLIPVisionModel.from_pretrained(
     MODEL_ID, subfolder="image_encoder", torch_dtype=torch.float32, cache_dir=CACHE_DIR
