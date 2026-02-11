@@ -1,9 +1,12 @@
 import os
+from importlib.metadata import version as pkg_version
 
 # ── Cache setup (must be set BEFORE importing HF libraries) ──────────────────
 CACHE_DIR = "/content/drive/My Drive/huggingface_cache"
 os.environ["HF_HOME"] = CACHE_DIR
 os.environ["HF_HUB_CACHE"] = CACHE_DIR
+os.environ["HF_ASSETS_CACHE"] = os.path.join(CACHE_DIR, "assets")
+os.environ["HF_XET_CACHE"] = os.path.join(CACHE_DIR, "xet")
 
 import torch
 from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, UniPCMultistepScheduler
@@ -49,8 +52,67 @@ default_negative_prompt = (
 )
 
 DEFAULT_AVATAR_URL = "https://upload.wikimedia.org/wikipedia/en/d/db/Clippy-letter.PNG"
+PINNED_DIFFUSERS_COMMIT = "3a23d941f559759195dd30b5d206008f9e34f2bb"
+COLAB_PINNED_INSTALL_CMD = (
+    "!pip install -q --upgrade "
+    f"git+https://github.com/huggingface/diffusers.git@{PINNED_DIFFUSERS_COMMIT} "
+    "transformers==4.55.4 accelerate==1.10.0 huggingface_hub==0.34.4 "
+    "safetensors sentencepiece peft ftfy imageio-ffmpeg opencv-python"
+)
+
+
+def _print_runtime_versions():
+    print("Runtime package versions:")
+    for pkg in ("diffusers", "transformers", "accelerate", "huggingface_hub"):
+        try:
+            print(f"- {pkg}: {pkg_version(pkg)}")
+        except Exception:
+            print(f"- {pkg}: not installed")
+    print("Recommended Colab install cell:")
+    print(COLAB_PINNED_INSTALL_CMD)
+
+
+def _repair_text_encoder_embeddings_if_needed(text_encoder):
+    """
+    Ensure encoder token embeddings are tied to shared embeddings.
+    This addresses checkpoint/version mismatches where embed_tokens may appear missing.
+    """
+    if text_encoder is None:
+        return
+    shared = getattr(text_encoder, "shared", None)
+    encoder = getattr(text_encoder, "encoder", None)
+    embed_tokens = getattr(encoder, "embed_tokens", None) if encoder is not None else None
+    if shared is None or embed_tokens is None:
+        return
+    try:
+        is_tied = embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
+    except Exception:
+        is_tied = False
+    if is_tied:
+        print("Text encoder embeddings are tied (OK).")
+        return
+    print("Text encoder embeddings are not tied. Attempting repair...")
+    try:
+        text_encoder.tie_weights()
+    except Exception:
+        pass
+    try:
+        is_tied = embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
+    except Exception:
+        is_tied = False
+    if is_tied:
+        print("Repaired by tie_weights().")
+        return
+    # Do not silently force-copy here; keep failure explicit so version mismatch
+    # does not get hidden.
+    raise RuntimeError(
+        "Text encoder embeddings remain untied after tie_weights(). "
+        "Please reinstall pinned dependencies and restart runtime."
+    )
 
 # ── Model Loading ────────────────────────────────────────────────────────────
+
+_print_runtime_versions()
 
 image_encoder = CLIPVisionModel.from_pretrained(
     MODEL_ID, subfolder="image_encoder", torch_dtype=torch.float32, cache_dir=CACHE_DIR
@@ -65,6 +127,7 @@ pipe = WanImageToVideoPipeline.from_pretrained(
 pipe.scheduler = UniPCMultistepScheduler.from_config(
     pipe.scheduler.config, flow_shift=8.0
 )
+_repair_text_encoder_embeddings_if_needed(getattr(pipe, "text_encoder", None))
 pipe.to("cuda")
 
 causvid_path = hf_hub_download(repo_id=LORA_REPO_ID, filename=LORA_FILENAME, cache_dir=CACHE_DIR)
