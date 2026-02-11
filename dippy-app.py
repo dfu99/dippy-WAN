@@ -3,6 +3,7 @@ from importlib.metadata import version as pkg_version
 
 # ── Cache setup (must be set BEFORE importing HF libraries) ──────────────────
 DEFAULT_LOCAL_CACHE_DIR = "/content/hf_cache"
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 
 def _configure_cache_dirs():
@@ -124,6 +125,51 @@ def _prune_tiny_safetensors(cache_dir, repo_id, min_bytes=16 * 1024):
         )
         for path, size in removed:
             print(f"  - {path} ({size} bytes)")
+
+
+def _nearest_valid_num_frames(requested_frames):
+    """Wan expects (num_frames - 1) % 4 == 0."""
+    valid = [
+        n for n in range(MIN_FRAMES_MODEL, MAX_FRAMES_MODEL + 1)
+        if (n - 1) % 4 == 0
+    ]
+    return min(valid, key=lambda n: (abs(n - requested_frames), n))
+
+
+def _frame_to_pil(frame):
+    """Convert model frame outputs (PIL/np/tensor) into a valid RGB PIL image."""
+    if isinstance(frame, Image.Image):
+        return frame.convert("RGB")
+
+    if torch.is_tensor(frame):
+        frame = frame.detach().cpu().numpy()
+
+    arr = np.asarray(frame)
+
+    if arr.ndim == 4 and arr.shape[0] == 1:
+        arr = arr[0]
+
+    # CHW -> HWC
+    if arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[-1] not in (1, 3, 4):
+        arr = np.transpose(arr, (1, 2, 0))
+
+    if arr.dtype.kind == "f":
+        min_v = float(np.nanmin(arr))
+        max_v = float(np.nanmax(arr))
+        if min_v >= -1.01 and max_v <= 1.01:
+            arr = (arr + 1.0) * 127.5 if min_v < 0.0 else arr * 255.0
+        arr = np.clip(arr, 0, 255).astype(np.uint8)
+    elif arr.dtype != np.uint8:
+        arr = np.clip(arr, 0, 255).astype(np.uint8)
+
+    if arr.ndim == 2:
+        return Image.fromarray(arr, mode="L").convert("RGB")
+    if arr.ndim == 3 and arr.shape[2] == 1:
+        return Image.fromarray(arr[:, :, 0], mode="L").convert("RGB")
+    if arr.ndim == 3 and arr.shape[2] in (3, 4):
+        return Image.fromarray(arr[:, :, :3], mode="RGB")
+
+    raise TypeError(f"Unsupported frame shape/dtype for PIL conversion: {arr.shape}, {arr.dtype}")
 
 
 def _repair_text_encoder_embeddings_if_needed(text_encoder):
@@ -321,9 +367,9 @@ def generate_trajectory(
 
     target_h = max(MOD_VALUE, (int(height) // MOD_VALUE) * MOD_VALUE)
     target_w = max(MOD_VALUE, (int(width) // MOD_VALUE) * MOD_VALUE)
-    num_frames = np.clip(
-        int(round(duration_seconds * FIXED_FPS)), MIN_FRAMES_MODEL, MAX_FRAMES_MODEL
-    )
+    requested_frames = int(round(duration_seconds * FIXED_FPS))
+    requested_frames = int(np.clip(requested_frames, MIN_FRAMES_MODEL, MAX_FRAMES_MODEL))
+    num_frames = _nearest_valid_num_frames(requested_frames)
     base_seed = random.randint(0, MAX_SEED) if randomize_seed else int(seed)
 
     current_image = input_image.resize((target_w, target_h))
@@ -367,9 +413,7 @@ def generate_trajectory(
             all_frames.extend(output_frames[1:])
 
         # Last frame becomes input for next clip (frame continuity)
-        current_image = output_frames[-1]
-        if not isinstance(current_image, Image.Image):
-            current_image = Image.fromarray(np.array(current_image))
+        current_image = _frame_to_pil(output_frames[-1])
 
     # Export full stitched trajectory
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
