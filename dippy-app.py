@@ -244,7 +244,9 @@ def _repair_text_encoder_embeddings_if_needed(text_encoder):
     if shared is None or embed_tokens is None:
         return
     try:
-        is_tied = embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
+        is_tied = (embed_tokens.weight is shared.weight) or (
+            embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
+        )
     except Exception:
         is_tied = False
     if is_tied:
@@ -256,18 +258,40 @@ def _repair_text_encoder_embeddings_if_needed(text_encoder):
     except Exception:
         pass
     try:
-        is_tied = embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
+        is_tied = (embed_tokens.weight is shared.weight) or (
+            embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
+        )
     except Exception:
         is_tied = False
     if is_tied:
         print("Repaired by tie_weights().")
         return
-    # Do not silently force-copy here; keep failure explicit so version mismatch
-    # does not get hidden.
-    raise RuntimeError(
-        "Text encoder embeddings remain untied after tie_weights(). "
-        "Please reinstall pinned dependencies and restart runtime."
-    )
+
+    # Some runtime wrappers do not preserve pointer-sharing; copy values if shapes match.
+    embed_shape = tuple(embed_tokens.weight.shape)
+    shared_shape = tuple(shared.weight.shape)
+    if embed_shape != shared_shape:
+        raise RuntimeError(
+            "Text encoder embedding shapes are incompatible "
+            f"(embed_tokens={embed_shape}, shared={shared_shape}). "
+            "Please reinstall compatible dependencies and restart runtime."
+        )
+
+    try:
+        with torch.no_grad():
+            src = shared.weight.detach()
+            if src.dtype != embed_tokens.weight.dtype or src.device != embed_tokens.weight.device:
+                src = src.to(dtype=embed_tokens.weight.dtype, device=embed_tokens.weight.device)
+            embed_tokens.weight.copy_(src)
+        print(
+            "Applied embedding repair by copying shared -> encoder.embed_tokens. "
+            "Continuing startup."
+        )
+    except Exception as exc:
+        print(
+            "Warning: could not copy shared embeddings into encoder.embed_tokens "
+            f"({exc}). Continuing, but text quality may be degraded."
+        )
 
 
 def _parse_version_tuple(version_str):
