@@ -231,6 +231,20 @@ def _frame_to_pil(frame):
     raise TypeError(f"Unsupported frame shape/dtype for PIL conversion: {arr.shape}, {arr.dtype}")
 
 
+def _frames_to_list(frames):
+    """Normalize pipeline frame outputs into a non-ambiguous Python list."""
+    if frames is None:
+        return []
+    if isinstance(frames, np.ndarray):
+        if frames.ndim == 3:
+            return [frames]
+        return [frames[i] for i in range(frames.shape[0])]
+    try:
+        return list(frames)
+    except TypeError:
+        return [frames]
+
+
 def _repair_text_encoder_embeddings_if_needed(text_encoder):
     """
     Ensure encoder token embeddings are tied to shared embeddings.
@@ -615,7 +629,8 @@ def generate_trajectory(
                 num_inference_steps=int(steps),
                 generator=torch.Generator(device="cuda").manual_seed(forward_seed),
             ).frames[0]
-        if not forward_frames:
+        forward_frames = _frames_to_list(forward_frames)
+        if len(forward_frames) == 0:
             raise gr.Error("Forward generation produced no frames.")
         forward_frames = [_frame_to_pil(frame) for frame in forward_frames]
         forward_frames[0] = ground_state_image.copy()
@@ -639,7 +654,8 @@ def generate_trajectory(
                 num_inference_steps=int(steps),
                 generator=torch.Generator(device="cuda").manual_seed(backward_seed),
             ).frames[0]
-        if not backward_frames:
+        backward_frames = _frames_to_list(backward_frames)
+        if len(backward_frames) == 0:
             raise gr.Error("Reset generation produced no frames.")
         backward_frames = [_frame_to_pil(frame) for frame in backward_frames]
         backward_frames[0] = forward_last_frame
