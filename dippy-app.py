@@ -48,7 +48,6 @@ def _check_diffusers_transformers_compat():
 
 
 def _configure_cache_dirs():
-    # Prefer externally configured cache paths (from notebook), then fall back.
     cache_dir = (
         os.environ.get("HF_HUB_CACHE")
         or os.environ.get("HF_HOME")
@@ -68,33 +67,33 @@ CACHE_DIR = _configure_cache_dirs()
 
 import torch
 _check_diffusers_transformers_compat()
-try:
-    from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, UniPCMultistepScheduler
-except Exception as exc:
-    raise RuntimeError(
-        "Failed to import diffusers WAN pipeline dependencies. "
-        "Please run notebook Cell 3 to install a compatible stack, then relaunch. "
-        f"Detected versions: diffusers={_safe_pkg_version('diffusers')}, "
-        f"transformers={_safe_pkg_version('transformers')}, "
-        f"accelerate={_safe_pkg_version('accelerate')}, "
-        f"huggingface_hub={_safe_pkg_version('huggingface_hub')}"
-    ) from exc
+
+# Import diffusers utilities (export_to_video is backend-agnostic)
 from diffusers.utils import export_to_video
-from transformers import CLIPVisionModel
 import gradio as gr
 import tempfile
-import spaces
+try:
+    import spaces
+except ImportError:
+    # Not on HF Spaces — provide a no-op decorator
+    class _FakeSpaces:
+        @staticmethod
+        def GPU(*args, **kwargs):
+            def decorator(fn):
+                return fn
+            return decorator
+    spaces = _FakeSpaces()
 from huggingface_hub import hf_hub_download
 import numpy as np
 from PIL import Image
 import random
 import openai
 
-# ── Constants ────────────────────────────────────────────────────────────────
+# ── Import backends ───────────────────────────────────────────────────────────
 
-MODEL_ID = "Wan-AI/Wan2.1-I2V-14B-480P-Diffusers"
-LORA_REPO_ID = "Kijai/WanVideo_comfy"
-LORA_FILENAME = "Wan21_CausVid_14B_T2V_lora_rank32.safetensors"
+from backends import get_backend, available_backends, _frame_to_pil
+
+# ── Constants ────────────────────────────────────────────────────────────────
 
 MOD_VALUE = 32
 DEFAULT_H_SLIDER_VALUE = 512
@@ -109,7 +108,7 @@ FIXED_FPS = 24
 MIN_FRAMES_MODEL = 8
 MAX_FRAMES_MODEL = 81
 
-DEFAULT_CLIP_DURATION = 2.0  # seconds → 48 frames at 24fps
+DEFAULT_CLIP_DURATION = 2.0  # seconds
 
 default_negative_prompt = (
     "Bright tones, overexposed, static, blurred details, subtitles, style, works, "
@@ -136,28 +135,60 @@ COLAB_PINNED_INSTALL_CMD = (
     "safetensors sentencepiece peft ftfy imageio-ffmpeg opencv-python"
 )
 
+# ── Backend selection ─────────────────────────────────────────────────────────
+
+# Select backend via env var: DIPPY_BACKEND=cogvideo5b | ltx2b | wan14b
+DEFAULT_BACKEND = os.environ.get("DIPPY_BACKEND", "wan14b")
+
+# Active backend instance (loaded lazily on first generation or at startup)
+_active_backend = None
+_active_backend_name = None
+
+
+def _get_or_load_backend(name=None):
+    """Get the active backend, loading it if needed."""
+    global _active_backend, _active_backend_name
+    if name is None:
+        name = _active_backend_name or DEFAULT_BACKEND
+    if _active_backend is not None and _active_backend_name == name:
+        return _active_backend
+    # Unload previous backend
+    if _active_backend is not None:
+        print(f"Unloading {_active_backend_name}...")
+        _active_backend.unload()
+    print(f"Loading backend: {name}")
+    _active_backend = get_backend(name)
+    _active_backend.load(cache_dir=CACHE_DIR)
+    _active_backend_name = name
+    return _active_backend
+
+
+def switch_backend(name):
+    """Switch to a different backend (called from UI dropdown)."""
+    backend = _get_or_load_backend(name)
+    return (
+        gr.update(value=backend.default_steps),
+        gr.update(value=backend.default_guidance),
+        f"**Active:** {backend.display_name} | VRAM: {backend.vram_gb} | "
+        f"FPS: {backend.fps} | {backend.description}"
+    )
+
+
+# ── Utility Functions ─────────────────────────────────────────────────────────
 
 def _print_runtime_versions():
     print("Cache directories:")
     print(f"- HF_HOME: {os.environ.get('HF_HOME')}")
     print(f"- HF_HUB_CACHE: {os.environ.get('HF_HUB_CACHE')}")
-    print(f"- HF_ASSETS_CACHE: {os.environ.get('HF_ASSETS_CACHE')}")
-    print(f"- HF_XET_CACHE: {os.environ.get('HF_XET_CACHE')}")
     print("Runtime package versions:")
     for pkg in ("diffusers", "transformers", "accelerate", "huggingface_hub", "gradio"):
         try:
             print(f"- {pkg}: {pkg_version(pkg)}")
         except Exception:
             print(f"- {pkg}: not installed")
-    print("Recommended Colab install cell:")
-    print(COLAB_PINNED_INSTALL_CMD)
 
 
 def _prune_tiny_safetensors(cache_dir, repo_id, min_bytes=16 * 1024):
-    """
-    Remove obviously bad shard placeholders (e.g., 79-byte link stubs)
-    so HF can re-download valid files.
-    """
     repo_cache_dir = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
     if not os.path.isdir(repo_cache_dir):
         return
@@ -178,307 +209,8 @@ def _prune_tiny_safetensors(cache_dir, repo_id, min_bytes=16 * 1024):
                 except OSError:
                     continue
     if removed:
-        print(
-            f"Removed {len(removed)} tiny safetensors files from {repo_cache_dir} "
-            f"(threshold={min_bytes} bytes)."
-        )
-        for path, size in removed:
-            print(f"  - {path} ({size} bytes)")
+        print(f"Removed {len(removed)} tiny safetensors stubs from {repo_cache_dir}")
 
-
-def _nearest_valid_num_frames(requested_frames):
-    """Wan expects (num_frames - 1) % 4 == 0."""
-    valid = [
-        n for n in range(MIN_FRAMES_MODEL, MAX_FRAMES_MODEL + 1)
-        if (n - 1) % 4 == 0
-    ]
-    return min(valid, key=lambda n: (abs(n - requested_frames), n))
-
-
-def _frame_to_pil(frame):
-    """Convert model frame outputs (PIL/np/tensor) into a valid RGB PIL image."""
-    if isinstance(frame, Image.Image):
-        return frame.convert("RGB")
-
-    if torch.is_tensor(frame):
-        frame = frame.detach().cpu().numpy()
-
-    arr = np.asarray(frame)
-
-    if arr.ndim == 4 and arr.shape[0] == 1:
-        arr = arr[0]
-
-    # CHW -> HWC
-    if arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[-1] not in (1, 3, 4):
-        arr = np.transpose(arr, (1, 2, 0))
-
-    if arr.dtype.kind == "f":
-        min_v = float(np.nanmin(arr))
-        max_v = float(np.nanmax(arr))
-        if min_v >= -1.01 and max_v <= 1.01:
-            arr = (arr + 1.0) * 127.5 if min_v < 0.0 else arr * 255.0
-        arr = np.clip(arr, 0, 255).astype(np.uint8)
-    elif arr.dtype != np.uint8:
-        arr = np.clip(arr, 0, 255).astype(np.uint8)
-
-    if arr.ndim == 2:
-        return Image.fromarray(arr, mode="L").convert("RGB")
-    if arr.ndim == 3 and arr.shape[2] == 1:
-        return Image.fromarray(arr[:, :, 0], mode="L").convert("RGB")
-    if arr.ndim == 3 and arr.shape[2] in (3, 4):
-        return Image.fromarray(arr[:, :, :3], mode="RGB")
-
-    raise TypeError(f"Unsupported frame shape/dtype for PIL conversion: {arr.shape}, {arr.dtype}")
-
-
-def _frames_to_list(frames):
-    """Normalize pipeline frame outputs into a non-ambiguous Python list."""
-    if frames is None:
-        return []
-    if isinstance(frames, np.ndarray):
-        if frames.ndim == 3:
-            return [frames]
-        return [frames[i] for i in range(frames.shape[0])]
-    try:
-        return list(frames)
-    except TypeError:
-        return [frames]
-
-
-def _repair_text_encoder_embeddings_if_needed(text_encoder):
-    """
-    Ensure encoder token embeddings are tied to shared embeddings.
-    This addresses checkpoint/version mismatches where embed_tokens may appear missing.
-    """
-    if text_encoder is None:
-        return
-    shared = getattr(text_encoder, "shared", None)
-    encoder = getattr(text_encoder, "encoder", None)
-    embed_tokens = getattr(encoder, "embed_tokens", None) if encoder is not None else None
-    if shared is None or embed_tokens is None:
-        return
-    try:
-        is_tied = (embed_tokens.weight is shared.weight) or (
-            embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
-        )
-    except Exception:
-        is_tied = False
-    if is_tied:
-        print("Text encoder embeddings are tied (OK).")
-        return
-    print("Text encoder embeddings are not tied. Attempting repair...")
-    try:
-        text_encoder.tie_weights()
-    except Exception:
-        pass
-    try:
-        is_tied = (embed_tokens.weight is shared.weight) or (
-            embed_tokens.weight.data_ptr() == shared.weight.data_ptr()
-        )
-    except Exception:
-        is_tied = False
-    if is_tied:
-        print("Repaired by tie_weights().")
-        return
-
-    # Some runtime wrappers do not preserve pointer-sharing; copy values if shapes match.
-    embed_shape = tuple(embed_tokens.weight.shape)
-    shared_shape = tuple(shared.weight.shape)
-    if embed_shape != shared_shape:
-        raise RuntimeError(
-            "Text encoder embedding shapes are incompatible "
-            f"(embed_tokens={embed_shape}, shared={shared_shape}). "
-            "Please reinstall compatible dependencies and restart runtime."
-        )
-
-    try:
-        with torch.no_grad():
-            src = shared.weight.detach()
-            if src.dtype != embed_tokens.weight.dtype or src.device != embed_tokens.weight.device:
-                src = src.to(dtype=embed_tokens.weight.dtype, device=embed_tokens.weight.device)
-            embed_tokens.weight.copy_(src)
-        print(
-            "Applied embedding repair by copying shared -> encoder.embed_tokens. "
-            "Continuing startup."
-        )
-    except Exception as exc:
-        print(
-            "Warning: could not copy shared embeddings into encoder.embed_tokens "
-            f"({exc}). Continuing, but text quality may be degraded."
-        )
-
-
-def _parse_version_tuple(version_str):
-    return tuple(int(part) for part in version_str.split("."))
-
-
-def _gradio_platform_tags():
-    if sys.platform.startswith("linux"):
-        os_tag = "linux"
-    elif sys.platform == "darwin":
-        os_tag = "darwin"
-    elif sys.platform.startswith("win"):
-        os_tag = "windows"
-    else:
-        return None, None
-
-    machine = platform.machine().lower()
-    if machine in ("x86_64", "amd64"):
-        arch_tag = "amd64"
-    elif machine in ("aarch64", "arm64"):
-        arch_tag = "aarch64"
-    else:
-        arch_tag = machine
-
-    return os_tag, arch_tag
-
-
-def _discover_expected_frpc_name(gradio_dir, os_tag, arch_tag):
-    pattern = re.compile(rf"frpc_{os_tag}_{arch_tag}_v(\d+\.\d+)")
-    matches = []
-    for py_file in gradio_dir.glob("*.py"):
-        try:
-            text = py_file.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        for m in pattern.finditer(text):
-            matches.append((m.group(0), m.group(1)))
-    if not matches:
-        return None
-    matches.sort(key=lambda x: _parse_version_tuple(x[1]), reverse=True)
-    return matches[0][0]
-
-
-def _ensure_gradio_frpc_binary():
-    """
-    Ensure Gradio share-tunnel client exists and is executable.
-    This avoids intermittent "Could not create share link. Missing file: ... frpc ..."
-    failures in Colab.
-    """
-    try:
-        import gradio
-    except Exception as exc:
-        print(f"Could not import gradio for frpc preflight: {exc}")
-        return
-
-    os_tag, arch_tag = _gradio_platform_tags()
-    if not os_tag or not arch_tag:
-        print("Unsupported platform for frpc preflight; skipping.")
-        return
-
-    gradio_dir = Path(gradio.__file__).resolve().parent
-    expected_name = _discover_expected_frpc_name(gradio_dir, os_tag, arch_tag)
-    candidate_names = []
-    if expected_name:
-        candidate_names.append(expected_name)
-    candidate_names.extend([
-        f"frpc_{os_tag}_{arch_tag}_v0.3",
-        f"frpc_{os_tag}_{arch_tag}_v0.2",
-    ])
-    # De-duplicate while preserving order.
-    candidate_names = list(dict.fromkeys(candidate_names))
-
-    for name in candidate_names:
-        path = gradio_dir / name
-        if path.exists():
-            try:
-                path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-            except OSError:
-                pass
-            print(f"Found gradio tunnel binary: {path}")
-            return
-
-    for name in candidate_names:
-        version = name.rsplit("_v", 1)[-1]
-        url = f"https://cdn-media.huggingface.co/frpc-gradio-{version}/frpc_{os_tag}_{arch_tag}"
-        dest = gradio_dir / name
-        try:
-            print(f"Downloading gradio tunnel binary: {url}")
-            urlretrieve(url, dest)
-            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-            print(f"Installed gradio tunnel binary: {dest}")
-            return
-        except Exception as exc:
-            print(f"frpc download attempt failed ({url}): {exc}")
-
-    print(
-        "Unable to install gradio tunnel binary automatically. "
-        "If share links fail, rerun with internet access and check https://status.gradio.app"
-    )
-
-
-def _launch_with_share(demo):
-    in_colab = "google.colab" in sys.modules
-    if in_colab:
-        print("Detected Colab runtime: enabling inline app rendering.")
-    _ensure_gradio_frpc_binary()
-    try:
-        app, local_url, share_url = demo.queue().launch(
-            share=True,
-            inline=in_colab,
-            debug=True,
-            show_error=True,
-        )
-    except Exception as exc:
-        print(f"Share-enabled launch failed: {exc}")
-        print("Retrying launch without share tunnel.")
-        app, local_url, share_url = demo.queue().launch(
-            share=False,
-            inline=in_colab,
-            debug=True,
-            show_error=True,
-        )
-    print("Local URL:", local_url)
-    if share_url:
-        print("Share URL:", share_url)
-    else:
-        print(
-            "Share URL was not created. "
-            "Possible causes: frpc binary blocked/missing, internet egress restrictions, "
-            "or gradio share service outage (https://status.gradio.app)."
-        )
-        if in_colab:
-            print("Use the inline Gradio app rendered in this output cell.")
-    return app, local_url, share_url
-
-# ── Model Loading ────────────────────────────────────────────────────────────
-
-_print_runtime_versions()
-_prune_tiny_safetensors(CACHE_DIR, MODEL_ID)
-_prune_tiny_safetensors(CACHE_DIR, LORA_REPO_ID)
-
-image_encoder = CLIPVisionModel.from_pretrained(
-    MODEL_ID, subfolder="image_encoder", torch_dtype=torch.float32, cache_dir=CACHE_DIR
-)
-vae = AutoencoderKLWan.from_pretrained(
-    MODEL_ID, subfolder="vae", torch_dtype=torch.float32, cache_dir=CACHE_DIR
-)
-pipe = WanImageToVideoPipeline.from_pretrained(
-    MODEL_ID, vae=vae, image_encoder=image_encoder,
-    torch_dtype=torch.bfloat16, cache_dir=CACHE_DIR
-)
-pipe.scheduler = UniPCMultistepScheduler.from_config(
-    pipe.scheduler.config, flow_shift=8.0
-)
-_repair_text_encoder_embeddings_if_needed(getattr(pipe, "text_encoder", None))
-pipe.to("cuda")
-
-causvid_path = hf_hub_download(repo_id=LORA_REPO_ID, filename=LORA_FILENAME, cache_dir=CACHE_DIR)
-pipe.load_lora_weights(causvid_path, adapter_name="causvid_lora")
-pipe.set_adapters(["causvid_lora"], adapter_weights=[0.95])
-pipe.fuse_lora()
-
-# Load default avatar image at startup
-try:
-    import urllib.request
-    _tmp_avatar = os.path.join(tempfile.gettempdir(), "dippy_default_avatar.png")
-    if not os.path.exists(_tmp_avatar):
-        urllib.request.urlretrieve(DEFAULT_AVATAR_URL, _tmp_avatar)
-    DEFAULT_AVATAR_IMAGE = Image.open(_tmp_avatar).convert("RGB")
-except Exception:
-    DEFAULT_AVATAR_IMAGE = None
-
-# ── Helper Functions ─────────────────────────────────────────────────────────
 
 def _calculate_new_dimensions_wan(pil_image, mod_val, calculation_max_area,
                                   min_slider_h, max_slider_h,
@@ -575,21 +307,137 @@ def jump_to(clips, slider_val):
     return (idx, *outputs)
 
 
+# ── Gradio frpc tunnel management ─────────────────────────────────────────────
+
+def _parse_version_tuple(version_str):
+    return tuple(int(part) for part in version_str.split("."))
+
+
+def _gradio_platform_tags():
+    if sys.platform.startswith("linux"):
+        os_tag = "linux"
+    elif sys.platform == "darwin":
+        os_tag = "darwin"
+    elif sys.platform.startswith("win"):
+        os_tag = "windows"
+    else:
+        return None, None
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        arch_tag = "amd64"
+    elif machine in ("aarch64", "arm64"):
+        arch_tag = "aarch64"
+    else:
+        arch_tag = machine
+    return os_tag, arch_tag
+
+
+def _discover_expected_frpc_name(gradio_dir, os_tag, arch_tag):
+    pattern = re.compile(rf"frpc_{os_tag}_{arch_tag}_v(\d+\.\d+)")
+    matches = []
+    for py_file in gradio_dir.glob("*.py"):
+        try:
+            text = py_file.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for m in pattern.finditer(text):
+            matches.append((m.group(0), m.group(1)))
+    if not matches:
+        return None
+    matches.sort(key=lambda x: _parse_version_tuple(x[1]), reverse=True)
+    return matches[0][0]
+
+
+def _ensure_gradio_frpc_binary():
+    try:
+        import gradio
+    except Exception as exc:
+        print(f"Could not import gradio for frpc preflight: {exc}")
+        return
+    os_tag, arch_tag = _gradio_platform_tags()
+    if not os_tag or not arch_tag:
+        return
+    gradio_dir = Path(gradio.__file__).resolve().parent
+    expected_name = _discover_expected_frpc_name(gradio_dir, os_tag, arch_tag)
+    candidate_names = []
+    if expected_name:
+        candidate_names.append(expected_name)
+    candidate_names.extend([
+        f"frpc_{os_tag}_{arch_tag}_v0.3",
+        f"frpc_{os_tag}_{arch_tag}_v0.2",
+    ])
+    candidate_names = list(dict.fromkeys(candidate_names))
+    for name in candidate_names:
+        path = gradio_dir / name
+        if path.exists():
+            try:
+                path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            except OSError:
+                pass
+            return
+    for name in candidate_names:
+        version = name.rsplit("_v", 1)[-1]
+        url = f"https://cdn-media.huggingface.co/frpc-gradio-{version}/frpc_{os_tag}_{arch_tag}"
+        dest = gradio_dir / name
+        try:
+            urlretrieve(url, dest)
+            dest.chmod(dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            return
+        except Exception:
+            pass
+
+
+def _launch_with_share(demo):
+    in_colab = "google.colab" in sys.modules
+    _ensure_gradio_frpc_binary()
+    try:
+        app, local_url, share_url = demo.queue().launch(
+            share=True, inline=in_colab, debug=True, show_error=True,
+        )
+    except Exception:
+        app, local_url, share_url = demo.queue().launch(
+            share=False, inline=in_colab, debug=True, show_error=True,
+        )
+    print("Local URL:", local_url)
+    if share_url:
+        print("Share URL:", share_url)
+    return app, local_url, share_url
+
+
+# ── Startup ──────────────────────────────────────────────────────────────────
+
+_print_runtime_versions()
+
+# Load default avatar image
+try:
+    import urllib.request
+    _tmp_avatar = os.path.join(tempfile.gettempdir(), "dippy_default_avatar.png")
+    if not os.path.exists(_tmp_avatar):
+        urllib.request.urlretrieve(DEFAULT_AVATAR_URL, _tmp_avatar)
+    DEFAULT_AVATAR_IMAGE = Image.open(_tmp_avatar).convert("RGB")
+except Exception:
+    DEFAULT_AVATAR_IMAGE = None
+
+# Load the selected backend at startup
+_get_or_load_backend(DEFAULT_BACKEND)
+
+
 # ── Core Generation ──────────────────────────────────────────────────────────
 
 @spaces.GPU(duration=600)
 def generate_trajectory(
     input_image, sentences_text, height, width,
     negative_prompt, duration_seconds, guidance_scale, steps,
-    seed, randomize_seed,
+    seed, randomize_seed, backend_name,
     progress=gr.Progress(track_tqdm=True),
 ):
     """Generate loopable sentence clips with forward + reset passes."""
+    backend = _get_or_load_backend(backend_name)
+
     sentences = [s.strip() for s in sentences_text.strip().splitlines() if s.strip()]
     if not sentences:
         raise gr.Error("Please enter at least one sentence.")
 
-    # Use uploaded image or fall back to default avatar
     if input_image is None:
         if DEFAULT_AVATAR_IMAGE is not None:
             input_image = DEFAULT_AVATAR_IMAGE.copy()
@@ -598,9 +446,10 @@ def generate_trajectory(
 
     target_h = max(MOD_VALUE, (int(height) // MOD_VALUE) * MOD_VALUE)
     target_w = max(MOD_VALUE, (int(width) // MOD_VALUE) * MOD_VALUE)
-    requested_frames = int(round(duration_seconds * FIXED_FPS))
-    requested_frames = int(np.clip(requested_frames, MIN_FRAMES_MODEL, MAX_FRAMES_MODEL))
-    num_frames = _nearest_valid_num_frames(requested_frames)
+
+    requested_frames = int(round(duration_seconds * backend.fps))
+    requested_frames = int(np.clip(requested_frames, backend.min_frames, backend.max_frames))
+    num_frames = backend.valid_num_frames(requested_frames)
     base_seed = random.randint(0, MAX_SEED) if randomize_seed else int(seed)
 
     ground_state_image = _frame_to_pil(input_image.resize((target_w, target_h)))
@@ -617,22 +466,19 @@ def generate_trajectory(
             f"A character acts out: {sentence}. "
             "Smooth animation, pantomime, expressive gestures."
         )
-        with torch.inference_mode():
-            forward_frames = pipe(
-                image=ground_state_image,
-                prompt=forward_prompt,
-                negative_prompt=negative_prompt,
-                height=target_h,
-                width=target_w,
-                num_frames=num_frames,
-                guidance_scale=float(guidance_scale),
-                num_inference_steps=int(steps),
-                generator=torch.Generator(device="cuda").manual_seed(forward_seed),
-            ).frames[0]
-        forward_frames = _frames_to_list(forward_frames)
+        forward_frames = backend.generate(
+            image=ground_state_image,
+            prompt=forward_prompt,
+            negative_prompt=negative_prompt,
+            height=target_h,
+            width=target_w,
+            num_frames=num_frames,
+            guidance_scale=float(guidance_scale),
+            steps=int(steps),
+            seed=forward_seed,
+        )
         if len(forward_frames) == 0:
             raise gr.Error("Forward generation produced no frames.")
-        forward_frames = [_frame_to_pil(frame) for frame in forward_frames]
         forward_frames[0] = ground_state_image.copy()
         forward_last_frame = forward_frames[-1].copy()
 
@@ -642,66 +488,63 @@ def generate_trajectory(
             "back to the original neutral starting pose. "
             "Smooth animation, pantomime, expressive gestures."
         )
-        with torch.inference_mode():
-            backward_frames = pipe(
-                image=forward_last_frame,
-                prompt=backward_prompt,
-                negative_prompt=negative_prompt,
-                height=target_h,
-                width=target_w,
-                num_frames=num_frames,
-                guidance_scale=float(guidance_scale),
-                num_inference_steps=int(steps),
-                generator=torch.Generator(device="cuda").manual_seed(backward_seed),
-            ).frames[0]
-        backward_frames = _frames_to_list(backward_frames)
+        backward_frames = backend.generate(
+            image=forward_last_frame,
+            prompt=backward_prompt,
+            negative_prompt=negative_prompt,
+            height=target_h,
+            width=target_w,
+            num_frames=num_frames,
+            guidance_scale=float(guidance_scale),
+            steps=int(steps),
+            seed=backward_seed,
+        )
         if len(backward_frames) == 0:
             raise gr.Error("Reset generation produced no frames.")
-        backward_frames = [_frame_to_pil(frame) for frame in backward_frames]
         backward_frames[0] = forward_last_frame
         backward_frames[-1] = ground_state_image.copy()
 
-        # Forward + reset, skipping one duplicate boundary frame.
         output_frames = forward_frames + backward_frames[1:]
 
-        # Save individual clip
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
             clip_path = tmp.name
-        export_to_video(output_frames, clip_path, fps=FIXED_FPS)
-
+        export_to_video(output_frames, clip_path, fps=backend.fps)
         clips.append({"path": clip_path, "sentence": sentence})
 
-        # Accumulate frames for full trajectory (skip frame 0 for clips 1+ to
-        # avoid duplicate boundary frame)
         if i == 0:
             all_frames.extend(output_frames)
         else:
             all_frames.extend(output_frames[1:])
+
     progress(1.0, desc="Finished")
 
-    # Export full stitched trajectory
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
         trajectory_path = tmp.name
-    export_to_video(all_frames, trajectory_path, fps=FIXED_FPS)
+    export_to_video(all_frames, trajectory_path, fps=backend.fps)
 
-    # Navigate to first clip
     first_nav = navigate(clips, 0)
     total = len(clips)
 
     return (
-        clips,           # state: clip list
-        0,               # state: current index
-        first_nav[0],    # clip_video
-        first_nav[1],    # sentence_md
-        first_nav[2],    # indicator_md
-        first_nav[3],    # prev_btn interactive
-        first_nav[4],    # next_btn interactive
-        trajectory_path, # full_video
-        gr.update(maximum=total, value=1),  # timeline slider
+        clips,
+        0,
+        first_nav[0],
+        first_nav[1],
+        first_nav[2],
+        first_nav[3],
+        first_nav[4],
+        trajectory_path,
+        gr.update(maximum=total, value=1),
     )
 
 
 # ── Gradio UI ────────────────────────────────────────────────────────────────
+
+# Build backend choices for dropdown
+_backend_choices = []
+for _bname in available_backends():
+    _b = get_backend(_bname)
+    _backend_choices.append((_b.display_name, _bname))
 
 with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
     gr.Markdown("# Dippy Animation Trajectory Generator")
@@ -717,6 +560,21 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
     with gr.Row():
         # ── Left Column: Inputs ──────────────────────────────────────────
         with gr.Column(scale=1):
+            # Backend selector
+            backend_dropdown = gr.Dropdown(
+                choices=_backend_choices,
+                value=DEFAULT_BACKEND,
+                label="Model Backend",
+                info="Select model based on your GPU. CogVideoX/LTX run on T4 (free Colab).",
+            )
+            backend_info = gr.Markdown(
+                f"**Active:** {_active_backend.display_name} | "
+                f"VRAM: {_active_backend.vram_gb} | "
+                f"FPS: {_active_backend.fps} | "
+                f"{_active_backend.description}"
+                if _active_backend else ""
+            )
+
             input_image_component = gr.Image(
                 type="pil",
                 label="Starting Avatar Image (or leave empty for default)",
@@ -735,18 +593,15 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
             )
 
             duration_input = gr.Slider(
-                minimum=round(MIN_FRAMES_MODEL / FIXED_FPS, 1),
+                minimum=0.3,
                 maximum=round(MAX_FRAMES_MODEL / FIXED_FPS, 1),
                 step=0.1,
                 value=DEFAULT_CLIP_DURATION,
                 label="Clip Duration (seconds)",
-                info=(
-                    f"Per-pass duration. Each sentence runs forward + reset "
-                    f"(~2x this length). {MIN_FRAMES_MODEL}-{MAX_FRAMES_MODEL} frames at {FIXED_FPS}fps."
-                ),
+                info="Per-pass duration. Each sentence runs forward + reset (~2x this length).",
             )
             steps_slider = gr.Slider(
-                minimum=1, maximum=30, step=1, value=4,
+                minimum=1, maximum=50, step=1, value=4,
                 label="Inference Steps",
             )
 
@@ -804,6 +659,13 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
 
     # ── Event Wiring ─────────────────────────────────────────────────────
 
+    # Backend switching
+    backend_dropdown.change(
+        fn=switch_backend,
+        inputs=[backend_dropdown],
+        outputs=[steps_slider, guidance_scale_input, backend_info],
+    )
+
     # Auto-set dimensions on image upload / clear
     input_image_component.upload(
         fn=handle_image_upload_for_dims_wan,
@@ -830,6 +692,7 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
             input_image_component, sentences_input, height_input, width_input,
             negative_prompt_input, duration_input,
             guidance_scale_input, steps_slider, seed_input, randomize_seed_checkbox,
+            backend_dropdown,
         ],
         outputs=[
             clips_state, current_idx,

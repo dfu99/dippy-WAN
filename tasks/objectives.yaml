@@ -8,7 +8,37 @@
 #   - metrics: extract all numbers (accuracy, loss, counts, timings)
 #   - conclusions: 1-2 sentences explaining what the result means
 
-objectives: []
+objectives:
+  - id: obj-001
+    status: completed
+    statement: "Multi-backend I2V architecture for cost reduction"
+    methodology: >
+      Created backends.py with abstract I2VBackend class and three concrete backends
+      (WAN 14B, CogVideoX 5B with int8 quantization, LTX-Video 2B). Refactored
+      dippy-app.py to use backend abstraction with UI dropdown and env var selection.
+    metrics:
+      wan14b_vram_gb: 26
+      cogvideo5b_vram_gb: 5
+      ltx2b_vram_gb: 8
+      t4_compatible_backends: 2
+      estimated_cost_reduction_factor: 10
+    figures:
+      - figures/backend_comparison.png
+    conclusions: >
+      CogVideoX-5B (int8) and LTX-Video 2B both fit on free Colab T4,
+      eliminating the A100 requirement for development iteration.
+      Production quality still requires WAN 14B on A100/3090.
+    connects_to: obj-002
+    completed_date: "2026-03-10"
+
+  - id: obj-002
+    status: planned
+    statement: "Quality comparison across all three backends"
+    methodology: null
+    metrics: null
+    figures: null
+    conclusions: null
+    connects_to: null
 
 # Example entry (uncomment and fill):
 #  - id: obj-001

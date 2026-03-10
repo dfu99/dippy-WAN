@@ -3,6 +3,31 @@
 _Hard-won lessons, gotchas, and things that broke before._
 _This file is append-mostly. Only remove entries proven wrong._
 
-## General
+## Dependencies
 
--
+- **Pin versions strictly**: diffusers==0.36.0 + transformers==5.1.0 + accelerate==1.12.0 is the tested combo. Transformers 5.x removed `FLAX_WEIGHTS_NAME` which breaks diffusers < 0.35.2.
+- **torchao needed for CogVideoX int8**: Without it, CogVideoX-5B needs ~16GB VRAM (won't fit T4 with overhead). With int8_weight_only(), drops to ~5GB.
+
+## Model Loading
+
+- **WAN text encoder repair**: Checkpoint mismatches cause `embed_tokens.weight` to not be tied to `shared.weight`. The `_repair_text_encoder()` function in `backends.py` handles this with a multi-strategy approach (tie_weights → copy values).
+- **WAN CausVid LoRA**: Fused at weight 0.95 for faster inference. Must be loaded after pipeline is on CUDA.
+- **Prune tiny safetensors**: HF cache can have 79-byte link stubs that prevent proper model loading. `_prune_tiny_safetensors()` cleans these up.
+
+## Frame Constraints
+
+- **WAN**: `(num_frames - 1) % 4 == 0`, range [8, 81]
+- **CogVideoX**: Fixed at 49 frames, 8 fps (~6 seconds)
+- **LTX-Video**: `(num_frames - 1) % 8 == 0`, range varies by version
+- **Boundary frame dedup**: When stitching forward + reset, skip frame[0] of reset pass to avoid duplicate boundary frame.
+
+## Cost
+
+- **Colab Pro+ A100 burned through credits in 1 day** with WAN 14B — each trajectory (multiple sentences × 2 passes) uses 5-10+ minutes of A100 time
+- **RunPod RTX 3090 spot at $0.22/hr** is ~10x cheaper per GPU-hour than Colab Pro+
+- **Free Colab T4** works with CogVideoX-5B (int8) and LTX-Video 2B for development iteration
+
+## Gradio
+
+- **frpc binary**: Colab share links need the frpc tunnel binary. The `_ensure_gradio_frpc_binary()` function auto-downloads it if missing.
+- **`spaces` import**: Outside HF Spaces, `import spaces` fails. The app provides a no-op fallback decorator.
