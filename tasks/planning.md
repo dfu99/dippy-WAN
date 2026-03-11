@@ -15,10 +15,10 @@
 - [ ] Profile VRAM usage for each backend on T4
 - [ ] Test RunPod spot instance with WAN 14B ($0.22/hr RTX 3090)
 - [ ] Design alinakai API integration (sentence → clip endpoint)
-- [x] Update Dippy_WAN.ipynb to support backend selection
 
 ## Recently Completed
 
+- Updated Dippy_WAN.ipynb to support multi-backend selection
 - Multi-backend architecture (`backends.py`) with WAN 14B, CogVideoX 5B, LTX-Video 2B
 - Refactored `dippy-app.py` to use backend abstraction with UI dropdown
 - Backend selection via `DIPPY_BACKEND` env var
