@@ -15,7 +15,7 @@
 - [ ] Profile VRAM usage for each backend on T4
 - [ ] Test RunPod spot instance with WAN 14B ($0.22/hr RTX 3090)
 - [ ] Design alinakai API integration (sentence → clip endpoint)
-- [ ] Update Dippy_WAN.ipynb to support backend selection
+- [x] Update Dippy_WAN.ipynb to support backend selection
 
 ## Recently Completed
 
