@@ -15,7 +15,7 @@
 
 ## Next Steps
 
-- [ ] Test `ltx2b` locally on RTX 3060
+- [ ] Test `ltx2b` locally on RTX 3060 (retry — first attempt OOM-killed during model download)
 - [ ] Try CogVideoX with fewer steps (15) to cut generation time
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)

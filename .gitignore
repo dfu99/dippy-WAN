@@ -1,1 +1,4 @@
 __pycache__
+results/cogvideo_test_frame_*.png
+results/ltx2b_test_frame_*.png
+test_input.png

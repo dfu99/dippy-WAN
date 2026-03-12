@@ -28,6 +28,7 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **torchao int8 + cpu_offload incompatible**: torchao 0.11 quantized tensors (`AffineQuantizedTensor`) can't be moved between CPU/GPU by accelerate hooks. torchao 0.16 has a logger bug in diffusers 0.36.0. Set `DIPPY_NO_QUANTIZE=1` as workaround.
 - **Missing deps for CogVideoX tokenizer**: needs `tiktoken` and `protobuf` beyond the base pip install list.
 - **Conda env setup**: Created `dippy` env cloned from `torch-py312` (torch 2.10+cu128). diffusers 0.36.0 + transformers 5.1.0 work.
+- **LTX-Video download crashes shell**: Downloading `Lightricks/LTX-Video-0.9.7-dev` (22 files) OOM-killed the process and broke the shell session entirely (exit code 120, all subsequent commands fail). Set HF_TOKEN to avoid rate-limited retries, and don't run other heavy processes concurrently.
 
 ## Cost
 
