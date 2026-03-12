@@ -79,13 +79,32 @@ objectives:
     completed_date: "2026-03-12"
 
   - id: obj-004
-    status: planned
-    statement: "Quality comparison across all three backends"
-    methodology: null
-    metrics: null
-    figures: null
-    conclusions: null
+    status: completed
+    statement: "LTX-Video 2B runs locally but produces minimal motion vs CogVideoX"
+    methodology: >
+      Added sequential CPU offload to LTX backend (same pattern as CogVideoX).
+      Ran both backends on RTX 3060 with same stick figure input and wave prompt.
+      Compared output quality, VRAM, and generation time.
+    metrics:
+      ltx_peak_vram_gb: 0.97
+      ltx_gen_time_s: 1244
+      ltx_steps: 20
+      ltx_frames: 25
+      ltx_fps: 24
+      cogvideo_peak_vram_gb: 4.04
+      cogvideo_gen_time_s: 358
+      cogvideo_steps: 10
+      cogvideo_frames: 49
+      cogvideo_fps: 8
+    figures:
+      - results/backend_comparison_local.png
+    conclusions: >
+      Both backends run on RTX 3060 12GB with sequential CPU offload.
+      CogVideoX-5B produces much stronger motion (real hand appearing from prompt),
+      while LTX-Video 2B barely animates the input. CogVideoX is the clear winner
+      for local development: faster (6 vs 21 min), more frames, better quality.
     connects_to: null
+    completed_date: "2026-03-12"
 
 # Example entry (uncomment and fill):
 #  - id: obj-001

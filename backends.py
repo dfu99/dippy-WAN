@@ -346,7 +346,16 @@ class LTXVideo2BBackend(I2VBackend):
                 cache_dir=cache_dir,
             )
 
-        self.pipe.enable_model_cpu_offload()
+        # Use sequential cpu offload for tighter VRAM (e.g. RTX 3060 12GB)
+        if torch.cuda.is_available():
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if vram_gb < 14:
+                self.pipe.enable_sequential_cpu_offload()
+                print(f"Using sequential CPU offload (VRAM: {vram_gb:.0f}GB)")
+            else:
+                self.pipe.enable_model_cpu_offload()
+        else:
+            self.pipe.enable_model_cpu_offload()
         self._loaded = True
         print(f"{self.display_name} loaded.")
 
@@ -355,7 +364,7 @@ class LTXVideo2BBackend(I2VBackend):
         # LTX works at multiples of 32 for dimensions
         ltx_h = max(256, (int(height) // 32) * 32)
         ltx_w = max(256, (int(width) // 32) * 32)
-        # Cap for T4
+        # Cap for low-VRAM GPUs
         if ltx_h * ltx_w > 512 * 768:
             ltx_h, ltx_w = 512, 768
 

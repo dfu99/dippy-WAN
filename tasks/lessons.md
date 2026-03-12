@@ -29,7 +29,9 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **torchao int8 + cpu_offload incompatible**: torchao 0.11 quantized tensors (`AffineQuantizedTensor`) can't be moved between CPU/GPU by accelerate hooks. torchao 0.16 has a logger bug in diffusers 0.36.0. Set `DIPPY_NO_QUANTIZE=1` as workaround.
 - **Missing deps for CogVideoX tokenizer**: needs `tiktoken` and `protobuf` beyond the base pip install list.
 - **Conda env setup**: Created `dippy` env cloned from `torch-py312` (torch 2.10+cu128). diffusers 0.36.0 + transformers 5.1.0 work.
-- **LTX-Video download crashes shell**: Downloading `Lightricks/LTX-Video-0.9.7-dev` (22 files) OOM-killed the process and broke the shell session entirely (exit code 120, all subsequent commands fail). Set HF_TOKEN to avoid rate-limited retries, and don't run other heavy processes concurrently.
+- **LTX-Video download crashes shell**: Downloading `Lightricks/LTX-Video-0.9.7-dev` (22 files, 35GB) OOM-killed the process and broke the shell session entirely (exit code 120). Set HF_TOKEN and don't run other heavy processes concurrently.
+- **LTX-Video 2B barely animates**: On RTX 3060 with sequential offload, LTX generates near-static frames from a stick figure input. CogVideoX produces dramatically better I2V results. LTX may work better with different inputs or as T2V, but for Dippy's I2V charades use case, CogVideoX-5B is the clear local choice.
+- **LTX also needs sequential offload on 12GB**: `enable_model_cpu_offload()` OOMs at 11.25GB. Same fix as CogVideoX — auto-detect VRAM < 14GB.
 
 ## Cost
 
