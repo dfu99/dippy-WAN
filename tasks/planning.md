@@ -7,10 +7,10 @@
 3. **Optimize CogVideoX settings** — Reduce steps (30→15?) to cut generation time on local GPU
 4. **RunPod/Vast.ai deployment** — Create a lightweight deploy script for cheap WAN 14B runs
 
-## Testing Options (resolved)
+## Testing Options (RESOLVED — do not revisit)
 
-- **Local RTX 3060 12GB**: VERIFIED — `cogvideo5b` runs at 4.04GB peak VRAM via sequential CPU offload (23 min/clip). `ltx2b` (~8GB) likely fits too.
-- **Google Colab T4**: Notebook ready (`Dippy_WAN.ipynb`). REQUIRES MANUAL RUN — no programmatic Colab API exists. `git push` then open on Colab. (Claude cannot connect to Colab.)
+- **Local RTX 3060 12GB**: VERIFIED — `cogvideo5b` runs at 4.04GB peak VRAM, 6 min/clip at 10 steps.
+- **Google Colab T4**: ANSWERED — Claude CANNOT connect to Colab (no API exists). Notebook `Dippy_WAN.ipynb` is ready. User runs manually after `git push`.
 - **PACE cluster**: A100 nodes for `wan14b` testing via SLURM.
 
 ## Next Steps
