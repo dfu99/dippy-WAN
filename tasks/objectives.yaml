@@ -32,6 +32,31 @@ objectives:
     completed_date: "2026-03-10"
 
   - id: obj-002
+    status: completed
+    statement: "CogVideoX-5B runs locally on RTX 3060 12GB with sequential CPU offload"
+    methodology: >
+      Created dippy conda env (torch 2.10+cu128, diffusers 0.36.0, transformers 5.1.0).
+      Discovered torchao int8 + cpu_offload incompatible; used bf16 with sequential CPU offload.
+      Auto-detect VRAM < 14GB triggers sequential offload in backends.py.
+    metrics:
+      peak_vram_gb: 4.04
+      load_time_s: 5.3
+      generation_time_s: 1403
+      time_per_step_s: 44.5
+      steps: 30
+      frames: 49
+      fps: 8
+      clip_duration_s: 6.1
+    figures:
+      - results/cogvideo_rtx3060_benchmark.png
+    conclusions: >
+      CogVideoX-5B runs on RTX 3060 12GB at 4GB peak VRAM via sequential CPU offload.
+      Generation is slow (23 min for 6s clip) due to layer-by-layer CPU-GPU transfers,
+      but proves local development iteration is possible without cloud GPUs.
+    connects_to: obj-003
+    completed_date: "2026-03-11"
+
+  - id: obj-003
     status: planned
     statement: "Quality comparison across all three backends"
     methodology: null

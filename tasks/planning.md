@@ -15,9 +15,9 @@
 
 ## Next Steps
 
-- [ ] Test `cogvideo5b` locally on RTX 3060 (when GPU queue clears)
-- [ ] Run `DIPPY_BACKEND=cogvideo5b python dippy-app.py` on free Colab T4 (manual)
+- [ ] Run `DIPPY_BACKEND=cogvideo5b python dippy-app.py` on free Colab T4 (manual — notebook ready)
 - [ ] Run `DIPPY_BACKEND=ltx2b python dippy-app.py` on free Colab T4 (manual)
+- [ ] Test `ltx2b` locally on RTX 3060
 - [ ] Create side-by-side comparison video (same avatar, same sentences, 3 backends)
 - [ ] Profile VRAM usage for each backend on T4
 - [ ] Test RunPod spot instance with WAN 14B ($0.22/hr RTX 3090)
@@ -25,6 +25,7 @@
 
 ## Recently Completed
 
+- **CogVideoX-5B local test on RTX 3060** — 4.04GB peak VRAM, 23 min generation, sequential CPU offload works
 - Updated Dippy_WAN.ipynb to support multi-backend selection
 - Multi-backend architecture (`backends.py`) with WAN 14B, CogVideoX 5B, LTX-Video 2B
 - Refactored `dippy-app.py` to use backend abstraction with UI dropdown
