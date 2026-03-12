@@ -2,7 +2,7 @@
 
 ## Current Priorities
 
-1. **RunPod/Vast.ai deployment** — Create deploy script for WAN 14B ($0.22/hr RTX 3090)
+1. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
 2. **Design alinakai API integration** — sentence → clip endpoint
 
 ## Testing Options (RESOLVED — do not revisit)
@@ -14,11 +14,12 @@
 ## Next Steps
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)
-- [ ] Test RunPod spot instance with WAN 14B ($0.22/hr RTX 3090)
+- [ ] Test RunPod spot instance with `deploy_runpod.sh` ($0.22/hr RTX 3090)
 - [ ] Design alinakai API integration (sentence → clip endpoint)
 
 ## Recently Completed
 
+- **RunPod deploy script** — `deploy_runpod.sh` created with one-command deployment, VRAM checks, weight pre-download
 - **Gradio local launch** — UI wired with CogVideoX-5B defaults, backend-aware duration/steps/guidance, validated with pipeline test
 - **Prompt engineering sweep** — Action-style prompts ("raises both arms overhead") produce dramatic gestures; basic/detailed prompts only change faces. Higher guidance (9, 12) hurts. gs=6.0 is optimal.
 - **Forward+reset pipeline test** — Full loop works locally, 11.6 min/sentence, loop closes correctly

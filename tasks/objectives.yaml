@@ -206,6 +206,28 @@ objectives:
       Gradio app now launches locally with correct CogVideoX-5B defaults (10 steps, gs=6.0,
       6.1s fixed duration). Action-style prompts produce dramatic arm/body gestures in the
       full pipeline. Performance matches prior benchmarks (11.7 min, 4.03GB VRAM).
+    connects_to: obj-009
+    completed_date: "2026-03-12"
+
+  - id: obj-009
+    status: completed
+    statement: "RunPod/Vast.ai one-command deploy script for all three backends"
+    methodology: >
+      Created deploy_runpod.sh with backend selection, dependency installation, HF cache
+      setup, model pre-download, VRAM validation, and Gradio launch with share link.
+      Supports wan14b (RTX 3090), cogvideo5b (any GPU), and ltx2b.
+    metrics:
+      backends_supported: 3
+      runpod_3090_cost_per_hr: 0.22
+      wan14b_vram_gb: 26
+      cogvideo5b_vram_gb: 5
+      deployment_targets: 4
+    figures:
+      - figures/deployment_options.png
+    conclusions: >
+      All four deployment targets now have ready-to-use launch mechanisms:
+      local (verified), Colab (notebook), RunPod/Vast.ai (deploy script), PACE (SLURM).
+      Remaining work is user testing on actual cloud instances.
     connects_to: null
     completed_date: "2026-03-12"
 
