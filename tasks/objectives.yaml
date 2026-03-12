@@ -181,6 +181,31 @@ objectives:
       overhead and waves, big exaggerated waving motion") produce dramatically better
       arm/body gestures than basic or detailed prompts. Higher guidance scale (9.0, 12.0)
       actually reduces motion quality and adds blur. Default guidance_scale=6.0 is optimal.
+    connects_to: obj-008
+    completed_date: "2026-03-12"
+
+  - id: obj-008
+    status: completed
+    statement: "Gradio app wired for local CogVideoX launch with action-style prompts"
+    methodology: >
+      Updated dippy-app.py UI to initialize from active backend's defaults (steps, guidance,
+      duration). Changed CogVideoX default_steps to 10. Updated switch_backend() to adjust
+      duration slider range. Validated full forward+reset pipeline with new action-style prompts.
+    metrics:
+      forward_time_s: 348
+      reset_time_s: 353
+      total_time_s: 702
+      total_time_min: 11.7
+      peak_vram_gb: 4.03
+      gesture_quality: "arms raised, waving, full-body motion"
+      frames: 97
+      fps: 8
+    figures:
+      - results/pipeline_prompt_upgrade.png
+    conclusions: >
+      Gradio app now launches locally with correct CogVideoX-5B defaults (10 steps, gs=6.0,
+      6.1s fixed duration). Action-style prompts produce dramatic arm/body gestures in the
+      full pipeline. Performance matches prior benchmarks (11.7 min, 4.03GB VRAM).
     connects_to: null
     completed_date: "2026-03-12"
 
