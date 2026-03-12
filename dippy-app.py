@@ -104,11 +104,11 @@ SLIDER_MIN_H, SLIDER_MAX_H = 128, 896
 SLIDER_MIN_W, SLIDER_MAX_W = 128, 896
 MAX_SEED = np.iinfo(np.int32).max
 
-FIXED_FPS = 24
+FIXED_FPS = 24  # WAN default; overridden by backend at runtime
 MIN_FRAMES_MODEL = 8
 MAX_FRAMES_MODEL = 81
 
-DEFAULT_CLIP_DURATION = 2.0  # seconds
+DEFAULT_CLIP_DURATION = 2.0  # seconds; updated per-backend in switch_backend()
 
 default_negative_prompt = (
     "Bright tones, overexposed, static, blurred details, subtitles, style, works, "
@@ -166,9 +166,15 @@ def _get_or_load_backend(name=None):
 def switch_backend(name):
     """Switch to a different backend (called from UI dropdown)."""
     backend = _get_or_load_backend(name)
+    max_dur = round(backend.max_frames / backend.fps, 1)
+    clip_dur = min(DEFAULT_CLIP_DURATION, max_dur)
+    if backend.min_frames == backend.max_frames:
+        # Fixed frame count (e.g. CogVideoX) — lock duration
+        clip_dur = max_dur
     return (
         gr.update(value=backend.default_steps),
         gr.update(value=backend.default_guidance),
+        gr.update(minimum=0.3, maximum=max_dur, value=clip_dur),
         f"**Active:** {backend.display_name} | VRAM: {backend.vram_gb} | "
         f"FPS: {backend.fps} | {backend.description}"
     )
@@ -593,16 +599,19 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
                 placeholder="Enter sentences here, one per line...",
             )
 
+            _init_max_dur = round(_active_backend.max_frames / _active_backend.fps, 1) if _active_backend else round(MAX_FRAMES_MODEL / FIXED_FPS, 1)
+            _init_clip_dur = _init_max_dur if (_active_backend and _active_backend.min_frames == _active_backend.max_frames) else min(DEFAULT_CLIP_DURATION, _init_max_dur)
             duration_input = gr.Slider(
                 minimum=0.3,
-                maximum=round(MAX_FRAMES_MODEL / FIXED_FPS, 1),
+                maximum=_init_max_dur,
                 step=0.1,
-                value=DEFAULT_CLIP_DURATION,
+                value=_init_clip_dur,
                 label="Clip Duration (seconds)",
                 info="Per-pass duration. Each sentence runs forward + reset (~2x this length).",
             )
+            _init_steps = _active_backend.default_steps if _active_backend else 4
             steps_slider = gr.Slider(
-                minimum=1, maximum=50, step=1, value=4,
+                minimum=1, maximum=50, step=1, value=_init_steps,
                 label="Inference Steps",
             )
 
@@ -630,8 +639,9 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
                         step=MOD_VALUE, value=DEFAULT_W_SLIDER_VALUE,
                         label=f"Width (multiple of {MOD_VALUE})",
                     )
+                _init_guidance = _active_backend.default_guidance if _active_backend else 1.0
                 guidance_scale_input = gr.Slider(
-                    minimum=0.0, maximum=20.0, step=0.5, value=1.0,
+                    minimum=0.0, maximum=20.0, step=0.5, value=_init_guidance,
                     label="Guidance Scale",
                 )
 
@@ -664,7 +674,7 @@ with gr.Blocks(title="Dippy Animation Trajectory Generator") as demo:
     backend_dropdown.change(
         fn=switch_backend,
         inputs=[backend_dropdown],
-        outputs=[steps_slider, guidance_scale_input, backend_info],
+        outputs=[steps_slider, guidance_scale_input, duration_input, backend_info],
     )
 
     # Auto-set dimensions on image upload / clear

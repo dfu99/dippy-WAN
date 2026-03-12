@@ -217,7 +217,7 @@ class CogVideo5BBackend(I2VBackend):
     display_name = "CogVideoX 5B I2V (T4-friendly)"
     vram_gb = "~5 GB int8 / ~16 GB bf16"
     description = "Good quality, runs on T4 with int8 quantization. 49 frames at 8fps."
-    default_steps = 30
+    default_steps = 10  # 10 steps ≈ 30 steps quality (obj-003), 4x faster
     default_guidance = 6.0
     fps = 8
     min_frames = 49
