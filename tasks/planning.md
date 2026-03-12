@@ -2,10 +2,10 @@
 
 ## Current Priorities
 
-1. **Test LTX-Video 2B locally** — Second low-VRAM backend, should also fit on RTX 3060
-2. **Quality comparison** — Generate same sentences across backends, compare output quality
-3. **Optimize CogVideoX settings** — Reduce steps (30→15?) to cut generation time on local GPU
-4. **RunPod/Vast.ai deployment** — Create a lightweight deploy script for cheap WAN 14B runs
+1. **Test with real character images** — Replace stick figure with actual avatar to validate production quality
+2. **RunPod/Vast.ai deployment** — Create a lightweight deploy script for cheap WAN 14B runs
+3. **Full Gradio app local test** — Run `dippy-app.py` end-to-end locally with CogVideoX-5B
+4. **Design alinakai API integration** — sentence → clip endpoint
 
 ## Testing Options (RESOLVED — do not revisit)
 
