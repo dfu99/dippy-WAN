@@ -103,6 +103,30 @@ objectives:
       CogVideoX-5B produces much stronger motion (real hand appearing from prompt),
       while LTX-Video 2B barely animates the input. CogVideoX is the clear winner
       for local development: faster (6 vs 21 min), more frames, better quality.
+    connects_to: obj-005
+    completed_date: "2026-03-12"
+
+  - id: obj-005
+    status: completed
+    statement: "CogVideoX-5B animates cartoon avatar with prompt-appropriate gestures"
+    methodology: >
+      Created a cartoon-style character image (blue shirt, drawn features).
+      Tested two charades-style prompts: waving hello, pointing to self.
+      Ran CogVideoX-5B at 10 steps on RTX 3060 with sequential CPU offload.
+    metrics:
+      wave_gen_time_s: 390.5
+      point_gen_time_s: 347.7
+      peak_vram_gb: 4.03
+      frames_per_clip: 49
+      fps: 8
+      clip_duration_s: 6.1
+    figures:
+      - results/avatar_test_results.png
+    conclusions: >
+      CogVideoX-5B successfully animates a cartoon avatar with prompt-appropriate
+      gestures. The wave prompt raises the right hand, the point prompt brings a
+      finger forward. Character style is preserved. Validates the pipeline for
+      the actual Dippy use case (charades-style language learning clips).
     connects_to: null
     completed_date: "2026-03-12"
 

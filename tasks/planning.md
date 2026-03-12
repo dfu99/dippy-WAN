@@ -2,10 +2,9 @@
 
 ## Current Priorities
 
-1. **Test with real character images** — Replace stick figure with actual avatar to validate production quality
+1. **Full Gradio app local test** — Run `dippy-app.py` end-to-end locally with CogVideoX-5B
 2. **RunPod/Vast.ai deployment** — Create a lightweight deploy script for cheap WAN 14B runs
-3. **Full Gradio app local test** — Run `dippy-app.py` end-to-end locally with CogVideoX-5B
-4. **Design alinakai API integration** — sentence → clip endpoint
+3. **Design alinakai API integration** — sentence → clip endpoint
 
 ## Testing Options (RESOLVED — do not revisit)
 
@@ -21,6 +20,7 @@
 
 ## Recently Completed
 
+- **Cartoon avatar test** — CogVideoX animates character with prompt-appropriate wave/point gestures, style preserved
 - **LTX-Video 2B local test** — Runs at 0.97GB VRAM but minimal motion output; CogVideoX is superior for this use case
 - **CogVideoX step reduction** — 10 steps (6 min) matches 30 steps (23 min) quality; 4x speedup for local dev
 - **Colab connectivity question resolved** — no API exists; notebook is ready, user runs manually after git push
