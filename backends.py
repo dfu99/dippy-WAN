@@ -234,13 +234,18 @@ class CogVideo5BBackend(I2VBackend):
         print(f"Loading {self.display_name}...")
 
         # Try int8 quantization for T4 compatibility
-        try:
-            import torchao
-            from torchao.quantization import quantize_, int8_weight_only
-            use_quantization = True
-        except ImportError:
+        # Skip if DIPPY_NO_QUANTIZE is set (workaround: torchao + cpu_offload incompatible on some versions)
+        if os.environ.get("DIPPY_NO_QUANTIZE"):
             use_quantization = False
-            print("torchao not available; loading in bf16 (needs ~16GB VRAM)")
+            print("Quantization disabled (DIPPY_NO_QUANTIZE). Using bf16 with cpu_offload.")
+        else:
+            try:
+                import torchao
+                from torchao.quantization import quantize_, int8_weight_only
+                use_quantization = True
+            except ImportError:
+                use_quantization = False
+                print("torchao not available; loading in bf16 (needs ~16GB VRAM)")
 
         self.pipe = CogVideoXImageToVideoPipeline.from_pretrained(
             self.MODEL_ID,
@@ -253,7 +258,17 @@ class CogVideo5BBackend(I2VBackend):
             quantize_(self.pipe.transformer, int8_weight_only())
             print("Applied int8 quantization to transformer (~5GB VRAM)")
 
-        self.pipe.enable_model_cpu_offload()
+        # Use sequential cpu offload for tighter VRAM (e.g. RTX 3060 12GB)
+        # Falls back to model-level offload if sequential isn't needed
+        if torch.cuda.is_available():
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if vram_gb < 14:
+                self.pipe.enable_sequential_cpu_offload()
+                print(f"Using sequential CPU offload (VRAM: {vram_gb:.0f}GB)")
+            else:
+                self.pipe.enable_model_cpu_offload()
+        else:
+            self.pipe.enable_model_cpu_offload()
         self.pipe.vae.enable_tiling()
         self._loaded = True
         print(f"{self.display_name} loaded.")

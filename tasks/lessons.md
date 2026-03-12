@@ -21,6 +21,14 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **LTX-Video**: `(num_frames - 1) % 8 == 0`, range varies by version
 - **Boundary frame dedup**: When stitching forward + reset, skip frame[0] of reset pass to avoid duplicate boundary frame.
 
+## Local GPU (RTX 3060 12GB)
+
+- **CogVideoX-5B bf16 OOMs with `enable_model_cpu_offload()`** on 12GB GPUs. Peak usage is ~11GB during inference, overflows with desktop overhead.
+- **`enable_sequential_cpu_offload()` works** but is ~10x slower (45s/step vs ~4s/step) — moves individual layers rather than whole submodels.
+- **torchao int8 + cpu_offload incompatible**: torchao 0.11 quantized tensors (`AffineQuantizedTensor`) can't be moved between CPU/GPU by accelerate hooks. torchao 0.16 has a logger bug in diffusers 0.36.0. Set `DIPPY_NO_QUANTIZE=1` as workaround.
+- **Missing deps for CogVideoX tokenizer**: needs `tiktoken` and `protobuf` beyond the base pip install list.
+- **Conda env setup**: Created `dippy` env cloned from `torch-py312` (torch 2.10+cu128). diffusers 0.36.0 + transformers 5.1.0 work.
+
 ## Cost
 
 - **Colab Pro+ A100 burned through credits in 1 day** with WAN 14B — each trajectory (multiple sentences × 2 passes) uses 5-10+ minutes of A100 time
