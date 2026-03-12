@@ -2,9 +2,10 @@
 
 ## Current Priorities
 
-1. **Full Gradio app local test** — Run `dippy-app.py` end-to-end locally with CogVideoX-5B
-2. **RunPod/Vast.ai deployment** — Create a lightweight deploy script for cheap WAN 14B runs
-3. **Design alinakai API integration** — sentence → clip endpoint
+1. **Improve gesture quality** — Stronger prompts or guidance to get arm/hand motion, not just facial
+2. **RunPod/Vast.ai deployment** — Create deploy script for WAN 14B ($0.22/hr RTX 3090)
+3. **Full Gradio app local launch** — Wire up UI with CogVideoX-5B defaults for local use
+4. **Design alinakai API integration** — sentence → clip endpoint
 
 ## Testing Options (RESOLVED — do not revisit)
 
@@ -20,6 +21,7 @@
 
 ## Recently Completed
 
+- **Forward+reset pipeline test** — Full loop works locally, 11.6 min/sentence, loop closes correctly
 - **Cartoon avatar test** — CogVideoX animates character with prompt-appropriate wave/point gestures, style preserved
 - **LTX-Video 2B local test** — Runs at 0.97GB VRAM but minimal motion output; CogVideoX is superior for this use case
 - **CogVideoX step reduction** — 10 steps (6 min) matches 30 steps (23 min) quality; 4x speedup for local dev

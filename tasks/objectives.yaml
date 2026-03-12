@@ -127,6 +127,32 @@ objectives:
       gestures. The wave prompt raises the right hand, the point prompt brings a
       finger forward. Character style is preserved. Validates the pipeline for
       the actual Dippy use case (charades-style language learning clips).
+    connects_to: obj-006
+    completed_date: "2026-03-12"
+
+  - id: obj-006
+    status: completed
+    statement: "Full forward+reset looping pipeline works locally on RTX 3060"
+    methodology: >
+      Ran headless test of the complete Dippy pipeline: forward pass (animate sentence)
+      then reset pass (return to neutral). Used cartoon avatar with "hello, nice to meet you".
+      Verified loop closure: frame 96 matches frame 0.
+    metrics:
+      forward_time_s: 349
+      reset_time_s: 348
+      total_time_s: 696
+      total_time_min: 11.6
+      total_frames: 97
+      clip_duration_s: 12.1
+      peak_vram_gb: 4.03
+      steps_per_pass: 10
+    figures:
+      - results/pipeline_test_visualization.png
+    conclusions: >
+      The full forward+reset pipeline runs locally in 11.6 minutes per sentence.
+      Loop closes correctly (frame 96 = frame 0). Motion is primarily facial
+      expression changes; arm gestures may need stronger prompting or WAN 14B.
+      Pipeline mechanics validated for local CogVideoX-5B development.
     connects_to: null
     completed_date: "2026-03-12"
 
