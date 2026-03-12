@@ -2,7 +2,7 @@
 
 ## Current Priorities
 
-1. **Improve gesture quality** — Stronger prompts or guidance to get arm/hand motion, not just facial
+1. **Improve gesture quality** — RESOLVED: action-style prompts with explicit body descriptions work; update dippy-app.py prompt template
 2. **RunPod/Vast.ai deployment** — Create deploy script for WAN 14B ($0.22/hr RTX 3090)
 3. **Full Gradio app local launch** — Wire up UI with CogVideoX-5B defaults for local use
 4. **Design alinakai API integration** — sentence → clip endpoint
@@ -21,6 +21,7 @@
 
 ## Recently Completed
 
+- **Prompt engineering sweep** — Action-style prompts ("raises both arms overhead") produce dramatic gestures; basic/detailed prompts only change faces. Higher guidance (9, 12) hurts. gs=6.0 is optimal.
 - **Forward+reset pipeline test** — Full loop works locally, 11.6 min/sentence, loop closes correctly
 - **Cartoon avatar test** — CogVideoX animates character with prompt-appropriate wave/point gestures, style preserved
 - **LTX-Video 2B local test** — Runs at 0.97GB VRAM but minimal motion output; CogVideoX is superior for this use case

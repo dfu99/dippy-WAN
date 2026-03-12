@@ -153,6 +153,34 @@ objectives:
       Loop closes correctly (frame 96 = frame 0). Motion is primarily facial
       expression changes; arm gestures may need stronger prompting or WAN 14B.
       Pipeline mechanics validated for local CogVideoX-5B development.
+    connects_to: obj-007
+    completed_date: "2026-03-12"
+
+  - id: obj-007
+    status: completed
+    statement: "Action-style prompts produce dramatically better arm gestures on CogVideoX"
+    methodology: >
+      Ran 5 prompt/guidance variants on CogVideoX-5B (RTX 3060, 10 steps, sequential offload)
+      with same cartoon avatar input and seed. Compared: basic, detailed, action-style prompts
+      at guidance_scale=6.0, plus detailed prompt at guidance_scale=9.0 and 12.0.
+    metrics:
+      variants_tested: 5
+      steps: 10
+      peak_vram_gb: 4.03
+      basic_gesture_quality: "facial only"
+      detailed_gesture_quality: "minimal motion"
+      action_gesture_quality: "both arms raised overhead"
+      gs9_gesture_quality: "less motion, character shrinks"
+      gs12_gesture_quality: "blurry, minimal motion"
+      best_variant: "action"
+      best_guidance_scale: 6.0
+    figures:
+      - results/prompt_sweep_comparison.png
+    conclusions: >
+      Action-style prompts with explicit body movement descriptions ("raises both arms
+      overhead and waves, big exaggerated waving motion") produce dramatically better
+      arm/body gestures than basic or detailed prompts. Higher guidance scale (9.0, 12.0)
+      actually reduces motion quality and adds blur. Default guidance_scale=6.0 is optimal.
     connects_to: null
     completed_date: "2026-03-12"
 

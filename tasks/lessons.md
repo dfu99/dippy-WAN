@@ -33,6 +33,11 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **LTX-Video 2B barely animates**: On RTX 3060 with sequential offload, LTX generates near-static frames from a stick figure input. CogVideoX produces dramatically better I2V results. LTX may work better with different inputs or as T2V, but for Dippy's I2V charades use case, CogVideoX-5B is the clear local choice.
 - **LTX also needs sequential offload on 12GB**: `enable_model_cpu_offload()` OOMs at 11.25GB. Same fix as CogVideoX — auto-detect VRAM < 14GB.
 
+## Prompt Engineering (CogVideoX-5B)
+
+- **Action-style prompts produce arm/body gestures**: Generic prompts ("waves hello") only produce facial changes. Explicit body descriptions ("raises both arms overhead and waves, big exaggerated waving motion, arms moving up and down") produce dramatic full-body gestures. Always include explicit physical movement descriptions in forward prompts.
+- **guidance_scale=6.0 is optimal**: Higher values (9.0, 12.0) reduce motion and add blur/artifacts. Don't increase guidance to try to get more motion — use better prompts instead.
+
 ## Cost
 
 - **Colab Pro+ A100 burned through credits in 1 day** with WAN 14B — each trajectory (multiple sentences × 2 passes) uses 5-10+ minutes of A100 time
