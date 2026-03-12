@@ -7,10 +7,17 @@
 3. **Optimize CogVideoX settings** — Find best steps/guidance/resolution for T4 with int8 quantization
 4. **RunPod/Vast.ai deployment** — Create a lightweight deploy script for cheap WAN 14B runs
 
+## Testing Options
+
+- **Google Colab T4**: Notebook is ready (`Dippy_WAN.ipynb`). Must be run manually — no programmatic Colab API exists. Auto-detects GPU and selects backend.
+- **Local RTX 3060 12GB**: Can run `cogvideo5b` (int8, ~5GB VRAM) and possibly `ltx2b` (~8GB). Not enough for `wan14b` (26GB).
+- **PACE cluster**: A100 nodes available for `wan14b` testing.
+
 ## Next Steps
 
-- [ ] Run `DIPPY_BACKEND=cogvideo5b python dippy-app.py` on free Colab T4
-- [ ] Run `DIPPY_BACKEND=ltx2b python dippy-app.py` on free Colab T4
+- [ ] Test `cogvideo5b` locally on RTX 3060 (when GPU queue clears)
+- [ ] Run `DIPPY_BACKEND=cogvideo5b python dippy-app.py` on free Colab T4 (manual)
+- [ ] Run `DIPPY_BACKEND=ltx2b python dippy-app.py` on free Colab T4 (manual)
 - [ ] Create side-by-side comparison video (same avatar, same sentences, 3 backends)
 - [ ] Profile VRAM usage for each backend on T4
 - [ ] Test RunPod spot instance with WAN 14B ($0.22/hr RTX 3090)
