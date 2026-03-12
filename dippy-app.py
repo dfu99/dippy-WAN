@@ -463,8 +463,9 @@ def generate_trajectory(
 
         progress((i * 2) / total_passes, desc=f"Forward pass {i + 1}/{len(sentences)}")
         forward_prompt = (
-            f"A character acts out: {sentence}. "
-            "Smooth animation, pantomime, expressive gestures."
+            f"The character enthusiastically acts out '{sentence}' with big, exaggerated "
+            "body movements, arms moving expressively, full-body pantomime gestures. "
+            "Smooth animation, dynamic motion."
         )
         forward_frames = backend.generate(
             image=ground_state_image,
@@ -485,8 +486,8 @@ def generate_trajectory(
         progress((i * 2 + 1) / total_passes, desc=f"Reset pass {i + 1}/{len(sentences)}")
         backward_prompt = (
             f"The same character naturally returns from acting out '{sentence}' "
-            "back to the original neutral starting pose. "
-            "Smooth animation, pantomime, expressive gestures."
+            "back to the original neutral starting pose, arms lowering to sides. "
+            "Smooth animation, gentle motion back to rest."
         )
         backward_frames = backend.generate(
             image=forward_last_frame,
