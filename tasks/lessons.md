@@ -25,6 +25,7 @@ _This file is append-mostly. Only remove entries proven wrong._
 
 - **CogVideoX-5B bf16 OOMs with `enable_model_cpu_offload()`** on 12GB GPUs. Peak usage is ~11GB during inference, overflows with desktop overhead.
 - **`enable_sequential_cpu_offload()` works** but is ~10x slower (45s/step vs ~4s/step) — moves individual layers rather than whole submodels.
+- **CogVideoX 10 steps ≈ 30 steps quality**: On RTX 3060, 10 steps takes 6 min vs 23 min for 30 steps, with visually comparable output. Use 10 steps for local dev, 30 for final renders.
 - **torchao int8 + cpu_offload incompatible**: torchao 0.11 quantized tensors (`AffineQuantizedTensor`) can't be moved between CPU/GPU by accelerate hooks. torchao 0.16 has a logger bug in diffusers 0.36.0. Set `DIPPY_NO_QUANTIZE=1` as workaround.
 - **Missing deps for CogVideoX tokenizer**: needs `tiktoken` and `protobuf` beyond the base pip install list.
 - **Conda env setup**: Created `dippy` env cloned from `torch-py312` (torch 2.10+cu128). diffusers 0.36.0 + transformers 5.1.0 work.

@@ -57,6 +57,28 @@ objectives:
     completed_date: "2026-03-11"
 
   - id: obj-003
+    status: completed
+    statement: "CogVideoX step reduction: 10 steps is 4x faster with comparable quality"
+    methodology: >
+      Ran CogVideoX-5B on RTX 3060 with sequential CPU offload at 30, 15, and 10 steps.
+      Compared generation time, VRAM usage, and visual output quality on same input/seed.
+    metrics:
+      steps_30_time_min: 23.4
+      steps_15_time_min: 9.1
+      steps_10_time_min: 6.0
+      peak_vram_gb: 4.04
+      speedup_15_vs_30: 2.6
+      speedup_10_vs_30: 3.9
+    figures:
+      - results/cogvideo_step_reduction.png
+    conclusions: >
+      10 steps produces visually comparable output to 30 steps on CogVideoX-5B,
+      reducing local generation from 23 min to 6 min per clip. Recommended as
+      default for local RTX 3060 development iteration.
+    connects_to: obj-004
+    completed_date: "2026-03-12"
+
+  - id: obj-004
     status: planned
     statement: "Quality comparison across all three backends"
     methodology: null

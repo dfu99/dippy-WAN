@@ -15,8 +15,7 @@
 
 ## Next Steps
 
-- [ ] Test `ltx2b` locally on RTX 3060 (retry — first attempt OOM-killed during model download)
-- [ ] Try CogVideoX with fewer steps (15) to cut generation time
+- [ ] Test `ltx2b` locally on RTX 3060 (retry — first attempt OOM-killed during model download; set HF_TOKEN first)
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)
 - [ ] Test RunPod spot instance with WAN 14B ($0.22/hr RTX 3090)
@@ -24,6 +23,7 @@
 
 ## Recently Completed
 
+- **CogVideoX step reduction** — 10 steps (6 min) matches 30 steps (23 min) quality; 4x speedup for local dev
 - **Colab connectivity question resolved** — no API exists; notebook is ready, user runs manually after git push
 - **CogVideoX-5B local test on RTX 3060** — 4.04GB peak VRAM, 23 min generation, sequential CPU offload works
 - Updated Dippy_WAN.ipynb to support multi-backend selection
