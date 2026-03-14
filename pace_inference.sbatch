@@ -4,7 +4,7 @@
 #SBATCH -N 1 --ntasks-per-node=1
 #SBATCH --gres=gpu:A100:1
 #SBATCH -C A100-80GB
-#SBATCH --mem=64G
+#SBATCH --mem=128G
 #SBATCH -t 02:00:00
 #SBATCH -q inferno
 #SBATCH --mail-type=END,FAIL
@@ -17,7 +17,7 @@
 # Usage: sbatch pace_inference.sbatch
 #   Override backend: sbatch --export=DIPPY_BACKEND=cogvideo5b pace_inference.sbatch
 
-set -euo pipefail
+set -eo pipefail
 
 module load cuda
 module load anaconda3
