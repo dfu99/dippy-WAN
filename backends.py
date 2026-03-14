@@ -260,15 +260,12 @@ class CogVideo5BBackend(I2VBackend):
             quantize_(self.pipe.transformer, int8_weight_only())
             print("Applied int8 quantization to transformer (~5GB VRAM)")
 
-        # Use sequential cpu offload for tighter VRAM (e.g. RTX 3060 12GB)
-        # Falls back to model-level offload if sequential isn't needed
+        # CogVideoX attention is very memory-hungry (~113GB for 49 frames at 720x480).
+        # Sequential CPU offload is needed for any GPU under ~48GB VRAM.
         if torch.cuda.is_available():
             vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-            if vram_gb < 14:
-                self.pipe.enable_sequential_cpu_offload()
-                print(f"Using sequential CPU offload (VRAM: {vram_gb:.0f}GB)")
-            else:
-                self.pipe.enable_model_cpu_offload()
+            self.pipe.enable_sequential_cpu_offload()
+            print(f"Using sequential CPU offload (VRAM: {vram_gb:.0f}GB)")
         else:
             self.pipe.enable_model_cpu_offload()
         self.pipe.vae.enable_tiling()
