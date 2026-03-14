@@ -49,6 +49,7 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **System Python has no torch**: PACE login/compute nodes have Python 3.9 system-wide but no ML packages. Must create a venv with `module load anaconda3` then install PyTorch from CUDA wheels (`--index-url https://download.pytorch.org/whl/cu128`). Bare `pip install torch` in a SLURM script will fail with `ModuleNotFoundError`.
 - **Persist venv on scratch**: Put venvs at `~/scratch/dippy_venv` so they survive across jobs. Check `if [ ! -d "$VENV_DIR" ]` to skip recreation on repeat runs.
 - **LoRA fusion must happen on CPU**: `peft`'s `fuse_lora()` calls `weight_B @ weight_A` via CUBLAS. On A100 with bf16, this can fail with `CUBLAS_STATUS_INVALID_VALUE`. Fix: call `fuse_lora()` before `.to("cuda")`, then move the fused model to GPU.
+- **WAN text encoder needs float32 on CUDA**: The UMT5 text encoder's bf16 linear layers trigger CUBLAS errors on PyTorch 2.10+cu128/A100. Fix: `.to(dtype=torch.float32)` after `.to("cuda")`. The rest of the pipeline stays bf16. Extra VRAM cost is minimal (~2GB for the text encoder).
 
 ## Gradio
 

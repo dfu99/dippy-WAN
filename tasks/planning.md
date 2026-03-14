@@ -2,7 +2,7 @@
 
 ## Current Priorities
 
-1. **Await PACE job 4933019 results** — WAN 14B inference on A100 with LoRA fix; check logs when complete
+1. **Await PACE job 4933659 results** — WAN 14B on A100; LoRA fix + text encoder float32 fix applied
 2. **Async job queue for API** — Add background task processing for production use
 3. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
 
@@ -14,7 +14,7 @@
 - **RunPod/Vast.ai**: Spot instances for on-demand testing.
 
 ## Next Steps
-- [ ] Check PACE job 4933019 results — `ssh pace-phoenix "sacct -j 4933019 ..."`
+- [ ] Check PACE job 4933659 results — `ssh pace-phoenix "sacct -j 4933659 ..."`
 - [ ] Fetch results if successful — `rsync -av pace-phoenix:~/p-yke8-0/dippy-WAN/results/ results/`
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)
