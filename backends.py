@@ -178,9 +178,8 @@ class Wan14BBackend(I2VBackend):
         # Repair text encoder embeddings if needed
         _repair_text_encoder(self.pipe)
 
-        self.pipe.to("cuda")
-
-        # Load and fuse CausVid LoRA for faster inference
+        # Load and fuse CausVid LoRA on CPU first to avoid CUBLAS errors,
+        # then move the fused model to CUDA
         causvid_path = hf_hub_download(
             repo_id=self.LORA_REPO_ID,
             filename=self.LORA_FILENAME,
@@ -189,6 +188,9 @@ class Wan14BBackend(I2VBackend):
         self.pipe.load_lora_weights(causvid_path, adapter_name="causvid_lora")
         self.pipe.set_adapters(["causvid_lora"], adapter_weights=[0.95])
         self.pipe.fuse_lora()
+        self.pipe.unload_lora_weights()
+
+        self.pipe.to("cuda")
         self._loaded = True
         print(f"{self.display_name} loaded.")
 
