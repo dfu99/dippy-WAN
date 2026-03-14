@@ -51,6 +51,7 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **LoRA fusion must happen on CPU**: `peft`'s `fuse_lora()` calls `weight_B @ weight_A` via CUBLAS. On A100 with bf16, this can fail with `CUBLAS_STATUS_INVALID_VALUE`. Fix: call `fuse_lora()` before `.to("cuda")`, then move the fused model to GPU.
 - **Home quota is 20GB**: PACE home dir has a 20GB quota. pip cache (~8GB) and rattler cache (~9GB) can fill it. Clear with `rm -rf ~/.cache/pip`. Put large data on scratch (no quota) not home/p-yke8-0.
 - **WAN 14B needs 128G RAM on PACE**: Loading the full model into CPU RAM before `.to("cuda")` requires ~55GB+. With 64GB SLURM `--mem`, job gets OOM-killed silently. Use `--mem=128G`.
+- **peft 0.18+ breaks diffusers 0.36.0 CogVideoX**: The LoRA pipeline loader in diffusers 0.36.0 has a `logger` reference that peft 0.18+ removes. Pin `peft<0.15` when using CogVideoX with diffusers 0.36.0. WAN 14B is not affected (different LoRA path).
 - **PyTorch 2.10+cu128 has CUBLAS bugs on A100**: Both bf16 AND float32 matmuls (`cublasGemmEx`, `cublasSgemmStridedBatched`) fail with `CUBLAS_STATUS_INVALID_VALUE` in UMT5 text encoder attention. Not a dtype issue — it's a PyTorch/CUDA compatibility bug. Fix: use PyTorch 2.6+cu124 instead, which is stable on A100.
 
 ## Gradio
