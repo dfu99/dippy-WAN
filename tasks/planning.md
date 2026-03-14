@@ -2,9 +2,8 @@
 
 ## Current Priorities
 
-1. **Await PACE job 4933659 results** — WAN 14B on A100; LoRA fix + text encoder float32 fix applied
-2. **Async job queue for API** — Add background task processing for production use
-3. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
+1. **Async job queue for API** — Add background task processing for production use
+2. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
 
 ## GPU Policy
 
@@ -14,8 +13,6 @@
 - **RunPod/Vast.ai**: Spot instances for on-demand testing.
 
 ## Next Steps
-- [ ] Check PACE job 4933659 results — `ssh pace-phoenix "sacct -j 4933659 ..."`
-- [ ] Fetch results if successful — `rsync -av pace-phoenix:~/p-yke8-0/dippy-WAN/results/ results/`
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)
 - [ ] Test RunPod spot instance with `deploy_runpod.sh` ($0.22/hr RTX 3090)
@@ -24,7 +21,7 @@
 
 ## Recently Completed
 
-- **PACE SLURM pipeline** — `pace_inference.sbatch` + `pace_test_inference.py`, venv setup, LoRA CPU-fusion fix. Job 4933019 submitted with fixes. GPU policy: no local GPU, PACE only.
+- **PACE WAN 14B inference SUCCESS** — Job 4934779 completed on A100. Forward+reset in 10 min, 53GB VRAM. Fixed: venv setup, LoRA CPU fusion, PyTorch 2.10 CUBLAS bug (downgraded to 2.6), 128G RAM for model loading, disk quota cleanup.
 - **alinakai API integration** — `api.py` with FastAPI REST endpoint: POST /generate (sentence+image→clip), GET /clips, GET /backends, GET /health
 - **RunPod deploy script** — `deploy_runpod.sh` created with one-command deployment, VRAM checks, weight pre-download
 - **Gradio local launch** — UI wired with CogVideoX-5B defaults, backend-aware duration/steps/guidance, validated with pipeline test

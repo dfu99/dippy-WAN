@@ -256,32 +256,36 @@ objectives:
     completed_date: "2026-03-14"
 
   - id: obj-011
-    status: in-progress
-    statement: "PACE cluster SLURM pipeline for WAN 14B inference on A100"
+    status: completed
+    statement: "WAN 14B forward+reset inference validated on PACE A100"
     methodology: >
-      Created pace_inference.sbatch (A100-80GB, venv with CUDA PyTorch wheels)
-      and pace_test_inference.py (headless forward+reset inference). Debugged three
-      failures iteratively: missing torch, CUBLAS LoRA error, CUBLAS text encoder error.
-      Synced project to PACE and submitted four jobs.
+      Created pace_inference.sbatch and pace_test_inference.py for headless inference.
+      Iterated through 6 job submissions fixing: missing venv, CUBLAS LoRA bf16 error
+      (fuse on CPU), CUBLAS text encoder error (PyTorch 2.10 bug → downgrade to 2.6),
+      OOM kill (64G→128G RAM), disk quota (cleared pip cache).
     metrics:
-      jobs_submitted: 4
-      job_4932682_result: "FAILED — no torch in system Python"
-      job_4932774_result: "FAILED — CUBLAS LoRA bf16 error at 24 min"
-      job_4933019_result: "FAILED — CUBLAS text encoder bf16 error at 24 min"
-      job_4933659_result: "PENDING — text encoder float32 fix applied"
-      model_load_successful: true
+      jobs_submitted: 6
+      successful_job: 4934779
+      forward_time_s: 313.1
+      reset_time_s: 279.2
+      total_inference_s: 592.3
+      total_inference_min: 9.9
+      model_load_time_s: 1270.5
+      peak_vram_gb: 53.13
       model_vram_gb: 46.12
-      a100_vram_gb: 79.3
-      model_load_time_s: 1316
-      pytorch_version: "2.10.0+cu128"
-      python_version: "3.10.13"
+      total_frames: 97
+      fps: 8
+      pytorch_version: "2.6.0+cu124"
+      a100_model: "NVIDIA A100 80GB PCIe"
+      ram_used_gb: 67.2
     figures:
+      - figures/pace_wan14b_results.png
       - figures/pace_migration_timeline.png
     conclusions: >
-      PACE SLURM pipeline operational but inference not yet validated. Three CUBLAS
-      bf16 issues fixed: no venv, LoRA fusion on CUDA, text encoder bf16 linear layers.
-      Model loads successfully at 46GB VRAM. Job 4933659 pending with all fixes.
-      If bf16 issues persist, fallback is PyTorch 2.6 with more stable CUBLAS.
+      WAN 14B runs successfully on PACE A100 with PyTorch 2.6+cu124. Full forward+reset
+      loop completes in ~10 min (vs 11.6 min for CogVideoX on local RTX 3060). Peak VRAM
+      53GB, needs 128G RAM for CPU loading. PyTorch 2.10 has CUBLAS bugs on A100 — must
+      use 2.6. Pipeline is production-ready for PACE cluster inference.
     connects_to: null
     completed_date: "2026-03-14"
 
