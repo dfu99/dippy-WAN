@@ -2,8 +2,9 @@
 
 ## Current Priorities
 
-1. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
-2. **Async job queue for API** — Add background task processing for production use
+1. **PACE A100 inference test** — Submit `pace_inference.sbatch` to PACE and validate WAN 14B on A100
+2. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
+3. **Async job queue for API** — Add background task processing for production use
 
 ## GPU Policy
 
@@ -13,6 +14,7 @@
 - **RunPod/Vast.ai**: Spot instances for on-demand testing.
 
 ## Next Steps
+- [ ] Submit `pace_inference.sbatch` to PACE — `mc sync dippy-WAN && mc submit pace_inference.sbatch`
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)
 - [ ] Test RunPod spot instance with `deploy_runpod.sh` ($0.22/hr RTX 3090)
