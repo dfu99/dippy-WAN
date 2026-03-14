@@ -256,30 +256,32 @@ objectives:
     completed_date: "2026-03-14"
 
   - id: obj-011
-    status: completed
+    status: in-progress
     statement: "PACE cluster SLURM pipeline for WAN 14B inference on A100"
     methodology: >
       Created pace_inference.sbatch (A100-80GB, venv with CUDA PyTorch wheels)
-      and pace_test_inference.py (headless forward+reset inference). Debugged two
-      failures: missing torch (no venv) and CUBLAS LoRA error (fuse on CPU fix).
-      Synced project to PACE and submitted three jobs iteratively.
+      and pace_test_inference.py (headless forward+reset inference). Debugged three
+      failures iteratively: missing torch, CUBLAS LoRA error, CUBLAS text encoder error.
+      Synced project to PACE and submitted four jobs.
     metrics:
-      jobs_submitted: 3
+      jobs_submitted: 4
       job_4932682_result: "FAILED — no torch in system Python"
       job_4932774_result: "FAILED — CUBLAS LoRA bf16 error at 24 min"
-      job_4933019_result: "PENDING — fix applied, awaiting results"
-      venv_setup_time_s: 120
-      model_load_time_min: 20
+      job_4933019_result: "FAILED — CUBLAS text encoder bf16 error at 24 min"
+      job_4933659_result: "PENDING — text encoder float32 fix applied"
+      model_load_successful: true
+      model_vram_gb: 46.12
       a100_vram_gb: 79.3
+      model_load_time_s: 1316
       pytorch_version: "2.10.0+cu128"
       python_version: "3.10.13"
     figures:
       - figures/pace_migration_timeline.png
     conclusions: >
-      PACE SLURM pipeline is operational. Two issues fixed: system Python lacks ML
-      packages (solved with persistent venv on scratch), and peft LoRA fusion fails
-      on CUDA bf16 (solved by fusing on CPU before .to('cuda')). Job 4933019 pending
-      with both fixes applied. Local GPU usage banned to prevent system crashes.
+      PACE SLURM pipeline operational but inference not yet validated. Three CUBLAS
+      bf16 issues fixed: no venv, LoRA fusion on CUDA, text encoder bf16 linear layers.
+      Model loads successfully at 46GB VRAM. Job 4933659 pending with all fixes.
+      If bf16 issues persist, fallback is PyTorch 2.6 with more stable CUBLAS.
     connects_to: null
     completed_date: "2026-03-14"
 
