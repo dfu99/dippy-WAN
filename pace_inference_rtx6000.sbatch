@@ -57,14 +57,17 @@ if [ ! -d "$VENV_DIR" ] || [ ! -f "$VENV_MARKER" ] || ! grep -q "$WANT_TORCH" "$
     pip install \
       diffusers==0.36.0 transformers==5.1.0 accelerate==1.12.0 \
       huggingface_hub==1.4.1 \
-      ftfy peft imageio-ffmpeg opencv-python safetensors sentencepiece \
+      ftfy "peft<0.15" imageio-ffmpeg opencv-python safetensors sentencepiece \
       tiktoken protobuf torchao
     echo "$WANT_TORCH" > "$VENV_MARKER"
 else
     source "$VENV_DIR/bin/activate"
-    # Ensure torchao is installed for int8 quantization
-    pip install -q torchao 2>/dev/null || true
+    # Ensure torchao + compatible peft for CogVideoX
+    pip install -q torchao "peft<0.15" 2>/dev/null || true
 fi
+
+# Fix peft/diffusers compatibility (peft 0.18+ breaks diffusers 0.36 LoRA loading)
+pip install -q "peft<0.15" 2>/dev/null || true
 
 echo "Python: $(which python) ($(python --version))"
 echo "Torch: $(python -c 'import torch; print(torch.__version__, torch.cuda.is_available())')"

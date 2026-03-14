@@ -60,7 +60,7 @@ if [ ! -d "$VENV_DIR" ] || [ ! -f "$VENV_MARKER" ] || ! grep -q "$WANT_TORCH" "$
     pip install \
       diffusers==0.36.0 transformers==5.1.0 accelerate==1.12.0 \
       huggingface_hub==1.4.1 \
-      ftfy peft imageio-ffmpeg opencv-python safetensors sentencepiece \
+      ftfy "peft<0.15" imageio-ffmpeg opencv-python safetensors sentencepiece \
       tiktoken protobuf
     echo "$WANT_TORCH" > "$VENV_MARKER"
 else
