@@ -31,6 +31,7 @@ cd "$PROJECT_DIR"
 export HF_HUB_CACHE="$CACHE_DIR"
 export HF_HOME="$CACHE_DIR"
 export DIPPY_BACKEND="cogvideo5b"
+export DIPPY_NO_QUANTIZE=1
 
 mkdir -p "$RESULTS_DIR" "$CACHE_DIR"
 
