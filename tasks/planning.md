@@ -2,8 +2,10 @@
 
 ## Current Priorities
 
-1. **Async job queue for API** — Add background task processing for production use
-2. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
+1. **PACE RTX 6000 test** — Run CogVideoX-5B on RTX 6000 (24GB) to benchmark the economical RunPod-equivalent config
+2. **WAN vs CogVideoX quality comparison** — Same avatar+prompt through both backends on PACE, side-by-side
+3. **Async job queue for API** — Add background task processing for production use
+4. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
 
 ## GPU Policy
 
