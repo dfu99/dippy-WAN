@@ -5,11 +5,12 @@
 1. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
 2. **Async job queue for API** — Add background task processing for production use
 
-## Testing Options (RESOLVED — do not revisit)
+## GPU Policy
 
-- **Local RTX 3060 12GB**: VERIFIED — `cogvideo5b` runs at 4.04GB peak VRAM, 6 min/clip at 10 steps.
-- **Google Colab T4**: ANSWERED — Claude CANNOT connect to Colab (no API exists). Notebook `Dippy_WAN.ipynb` is ready. User runs manually after `git push`.
-- **PACE cluster**: A100 nodes for `wan14b` testing via SLURM.
+- **Local RTX 3060**: DO NOT USE for inference or training — crashes the system. Only for tiny tests (<100MB VRAM).
+- **PACE cluster**: Primary compute target. A100/H100 nodes via SLURM. Account: gts-yke8, user: dfu71.
+- **Google Colab T4**: User runs notebook manually after `git push`.
+- **RunPod/Vast.ai**: Spot instances for on-demand testing.
 
 ## Next Steps
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
