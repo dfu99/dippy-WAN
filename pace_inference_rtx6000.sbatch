@@ -64,9 +64,8 @@ else
     source "$VENV_DIR/bin/activate"
 fi
 
-# torchao 0.16 is incompatible with PyTorch 2.6 + diffusers 0.36.0
-# CogVideoX-5B runs fine in bf16 on 22GB without int8 quantization
-pip uninstall -y torchao 2>/dev/null || true
+# torchao 0.16 breaks diffusers 0.36 on PyTorch 2.6; use 0.8.0
+pip install -q 'torchao==0.8.0' 2>/dev/null || true
 
 echo "Python: $(which python) ($(python --version))"
 echo "Torch: $(python -c 'import torch; print(torch.__version__, torch.cuda.is_available())')"

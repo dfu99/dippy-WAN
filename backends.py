@@ -260,13 +260,20 @@ class CogVideo5BBackend(I2VBackend):
             quantize_(self.pipe.transformer, int8_weight_only())
             print("Applied int8 quantization to transformer (~5GB VRAM)")
 
-        # CogVideoX attention is very memory-hungry (~113GB for 49 frames at 720x480).
-        # Sequential CPU offload + attention slicing needed for GPUs under ~48GB.
+        # CogVideoX attention needs ~113GB for 49 frames at 720x480 in bf16.
+        # With int8 quantization (torchao), it fits on 16-24GB GPUs with model offload.
+        # Without quantization, sequential CPU offload is needed (much slower).
         if torch.cuda.is_available():
             vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-            self.pipe.enable_sequential_cpu_offload()
-            self.pipe.enable_attention_slicing(1)
-            print(f"Using sequential CPU offload + attention slicing (VRAM: {vram_gb:.0f}GB)")
+            if use_quantization:
+                self.pipe.enable_model_cpu_offload()
+                print(f"Using model CPU offload + int8 quantization (VRAM: {vram_gb:.0f}GB)")
+            elif vram_gb < 14:
+                self.pipe.enable_sequential_cpu_offload()
+                print(f"Using sequential CPU offload (VRAM: {vram_gb:.0f}GB)")
+            else:
+                self.pipe.enable_model_cpu_offload()
+                print(f"Using model CPU offload (VRAM: {vram_gb:.0f}GB)")
         else:
             self.pipe.enable_model_cpu_offload()
         self.pipe.vae.enable_tiling()
