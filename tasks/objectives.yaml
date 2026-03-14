@@ -286,6 +286,32 @@ objectives:
       loop completes in ~10 min (vs 11.6 min for CogVideoX on local RTX 3060). Peak VRAM
       53GB, needs 128G RAM for CPU loading. PyTorch 2.10 has CUBLAS bugs on A100 — must
       use 2.6. Pipeline is production-ready for PACE cluster inference.
+    connects_to: obj-012
+    completed_date: "2026-03-14"
+
+  - id: obj-012
+    status: completed
+    statement: "CogVideoX requires Ampere+ GPUs — RTX 6000 (Turing) fails"
+    methodology: >
+      Tested CogVideoX-5B on PACE RTX 6000 (24GB, Turing/SM 7.5) across 5 job
+      iterations: bf16 with sequential offload, int8 with model offload, attention
+      slicing, torchao 0.8/0.16. All fail with 113GB OOM in F.scaled_dot_product_attention
+      because Turing lacks Flash Attention (requires SM 8.0+).
+    metrics:
+      jobs_tested: 5
+      attention_alloc_gb: 113
+      rtx6000_vram_gb: 23.5
+      rtx6000_arch: "Turing SM 7.5"
+      flash_attention_supported: false
+      min_arch_required: "Ampere SM 8.0+"
+      runpod_3090_cost_per_hr: 0.22
+      runpod_a100_cost_per_hr: 1.50
+    figures:
+      - figures/gpu_compatibility.png
+    conclusions: >
+      CogVideoX-5B fundamentally requires Ampere+ GPUs for Flash Attention. Without it,
+      SDPA materializes the full 113GB attention matrix. For RunPod, RTX 3090 (Ampere,
+      24GB, $0.22/hr) is the economical choice. Avoid Turing GPUs (RTX 6000, V100).
     connects_to: null
     completed_date: "2026-03-14"
 
