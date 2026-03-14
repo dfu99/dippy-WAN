@@ -49,6 +49,8 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **System Python has no torch**: PACE login/compute nodes have Python 3.9 system-wide but no ML packages. Must create a venv with `module load anaconda3` then install PyTorch from CUDA wheels (`--index-url https://download.pytorch.org/whl/cu128`). Bare `pip install torch` in a SLURM script will fail with `ModuleNotFoundError`.
 - **Persist venv on scratch**: Put venvs at `~/scratch/dippy_venv` so they survive across jobs. Check `if [ ! -d "$VENV_DIR" ]` to skip recreation on repeat runs.
 - **LoRA fusion must happen on CPU**: `peft`'s `fuse_lora()` calls `weight_B @ weight_A` via CUBLAS. On A100 with bf16, this can fail with `CUBLAS_STATUS_INVALID_VALUE`. Fix: call `fuse_lora()` before `.to("cuda")`, then move the fused model to GPU.
+- **Home quota is 20GB**: PACE home dir has a 20GB quota. pip cache (~8GB) and rattler cache (~9GB) can fill it. Clear with `rm -rf ~/.cache/pip`. Put large data on scratch (no quota) not home/p-yke8-0.
+- **WAN 14B needs 128G RAM on PACE**: Loading the full model into CPU RAM before `.to("cuda")` requires ~55GB+. With 64GB SLURM `--mem`, job gets OOM-killed silently. Use `--mem=128G`.
 - **PyTorch 2.10+cu128 has CUBLAS bugs on A100**: Both bf16 AND float32 matmuls (`cublasGemmEx`, `cublasSgemmStridedBatched`) fail with `CUBLAS_STATUS_INVALID_VALUE` in UMT5 text encoder attention. Not a dtype issue — it's a PyTorch/CUDA compatibility bug. Fix: use PyTorch 2.6+cu124 instead, which is stable on A100.
 
 ## Gradio
