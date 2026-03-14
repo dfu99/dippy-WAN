@@ -44,6 +44,11 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **RunPod RTX 3090 spot at $0.22/hr** is ~10x cheaper per GPU-hour than Colab Pro+
 - **Free Colab T4** works with CogVideoX-5B (int8) and LTX-Video 2B for development iteration
 
+## PACE Cluster
+
+- **System Python has no torch**: PACE login/compute nodes have Python 3.9 system-wide but no ML packages. Must create a venv with `module load anaconda3` then install PyTorch from CUDA wheels (`--index-url https://download.pytorch.org/whl/cu128`). Bare `pip install torch` in a SLURM script will fail with `ModuleNotFoundError`.
+- **Persist venv on scratch**: Put venvs at `~/scratch/dippy_venv` so they survive across jobs. Check `if [ ! -d "$VENV_DIR" ]` to skip recreation on repeat runs.
+
 ## Gradio
 
 - **frpc binary**: Colab share links need the frpc tunnel binary. The `_ensure_gradio_frpc_binary()` function auto-downloads it if missing.
