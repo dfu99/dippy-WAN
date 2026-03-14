@@ -2,10 +2,9 @@
 
 ## Current Priorities
 
-1. **PACE RTX 6000 test** — Run CogVideoX-5B on RTX 6000 (24GB) to benchmark the economical RunPod-equivalent config
-2. **WAN vs CogVideoX quality comparison** — Same avatar+prompt through both backends on PACE, side-by-side
-3. **Async job queue for API** — Add background task processing for production use
-4. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
+1. **WAN vs CogVideoX quality comparison** — Same avatar+prompt through both backends on PACE, side-by-side
+2. **Async job queue for API** — Add background task processing for production use
+3. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
 
 ## GPU Policy
 
@@ -23,6 +22,7 @@
 
 ## Recently Completed
 
+- **PACE RTX 6000 test** — CogVideoX-5B CANNOT run on RTX 6000 (Turing). Needs Ampere+ for Flash Attention. Tested 5 job iterations. RunPod recommendation: RTX 3090 ($0.22/hr).
 - **PACE WAN 14B inference SUCCESS** — Job 4934779 completed on A100. Forward+reset in 10 min, 53GB VRAM. Fixed: venv setup, LoRA CPU fusion, PyTorch 2.10 CUBLAS bug (downgraded to 2.6), 128G RAM for model loading, disk quota cleanup.
 - **alinakai API integration** — `api.py` with FastAPI REST endpoint: POST /generate (sentence+image→clip), GET /clips, GET /backends, GET /health
 - **RunPod deploy script** — `deploy_runpod.sh` created with one-command deployment, VRAM checks, weight pre-download
