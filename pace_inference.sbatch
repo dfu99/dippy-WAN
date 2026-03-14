@@ -20,11 +20,13 @@
 set -euo pipefail
 
 module load cuda
+module load anaconda3
 
 # ── Paths ──
 PROJECT_DIR="$HOME/p-yke8-0/dippy-WAN"
 CACHE_DIR="$HOME/scratch/hf_cache"
 RESULTS_DIR="$PROJECT_DIR/results"
+VENV_DIR="$HOME/scratch/dippy_venv"
 
 cd "$PROJECT_DIR"
 
@@ -43,12 +45,24 @@ echo "Backend: $DIPPY_BACKEND"
 echo "Cache: $CACHE_DIR"
 echo "================================"
 
-# ── Install deps (first run only, cached after) ──
-pip install -q --upgrade \
-  diffusers==0.36.0 transformers==5.1.0 accelerate==1.12.0 \
-  huggingface_hub==1.4.1 \
-  ftfy peft imageio-ffmpeg opencv-python safetensors sentencepiece \
-  torch torchvision 2>/dev/null || true
+# ── Virtual environment (created once, reused after) ──
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating venv at $VENV_DIR ..."
+    python -m venv "$VENV_DIR"
+    source "$VENV_DIR/bin/activate"
+    pip install --upgrade pip
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+    pip install \
+      diffusers==0.36.0 transformers==5.1.0 accelerate==1.12.0 \
+      huggingface_hub==1.4.1 \
+      ftfy peft imageio-ffmpeg opencv-python safetensors sentencepiece \
+      tiktoken protobuf
+else
+    source "$VENV_DIR/bin/activate"
+fi
+
+echo "Python: $(which python) ($(python --version))"
+echo "Torch: $(python -c 'import torch; print(torch.__version__, torch.cuda.is_available())')"
 
 # ── Run inference ──
 python pace_test_inference.py \
