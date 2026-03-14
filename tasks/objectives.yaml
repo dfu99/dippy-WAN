@@ -228,8 +228,32 @@ objectives:
       All four deployment targets now have ready-to-use launch mechanisms:
       local (verified), Colab (notebook), RunPod/Vast.ai (deploy script), PACE (SLURM).
       Remaining work is user testing on actual cloud instances.
-    connects_to: null
+    connects_to: obj-010
     completed_date: "2026-03-12"
+
+  - id: obj-010
+    status: completed
+    statement: "FastAPI REST endpoint for alinakai sentence-to-clip integration"
+    methodology: >
+      Created api.py with FastAPI server wrapping the existing backend abstraction.
+      POST /generate accepts sentence + avatar image (base64 or URL), runs forward+reset
+      pipeline, returns clip URLs. GET /clips/{id}/{file} serves generated MP4s.
+      GET /backends lists available backends. Reuses prompt templates from dippy-app.py.
+    metrics:
+      endpoints: 4
+      request_fields: 10
+      response_fields: 7
+      backends_supported: 3
+      output_formats: 3
+    figures:
+      - figures/api_architecture.png
+    conclusions: >
+      The REST API provides programmatic access to the Dippy pipeline for alinakai
+      integration. Accepts JSON with sentence + avatar, returns clip URLs.
+      Runs on any GPU-equipped server (RunPod, PACE, local). Next step is
+      async job queue for production use.
+    connects_to: null
+    completed_date: "2026-03-14"
 
 # Example entry (uncomment and fill):
 #  - id: obj-001

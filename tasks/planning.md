@@ -3,7 +3,7 @@
 ## Current Priorities
 
 1. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
-2. **Design alinakai API integration** — sentence → clip endpoint
+2. **Async job queue for API** — Add background task processing for production use
 
 ## Testing Options (RESOLVED — do not revisit)
 
@@ -15,10 +15,12 @@
 - [ ] Colab T4 testing — user must run notebook manually after `git push`
 - [ ] Create side-by-side comparison (same avatar + sentence, multiple backends)
 - [ ] Test RunPod spot instance with `deploy_runpod.sh` ($0.22/hr RTX 3090)
-- [ ] Design alinakai API integration (sentence → clip endpoint)
+- [ ] Add async job queue to API for production use
+- [ ] Client SDK / example for alinakai integration
 
 ## Recently Completed
 
+- **alinakai API integration** — `api.py` with FastAPI REST endpoint: POST /generate (sentence+image→clip), GET /clips, GET /backends, GET /health
 - **RunPod deploy script** — `deploy_runpod.sh` created with one-command deployment, VRAM checks, weight pre-download
 - **Gradio local launch** — UI wired with CogVideoX-5B defaults, backend-aware duration/steps/guidance, validated with pipeline test
 - **Prompt engineering sweep** — Action-style prompts ("raises both arms overhead") produce dramatic gestures; basic/detailed prompts only change faces. Higher guidance (9, 12) hurts. gs=6.0 is optimal.
