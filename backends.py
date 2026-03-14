@@ -191,6 +191,12 @@ class Wan14BBackend(I2VBackend):
         self.pipe.unload_lora_weights()
 
         self.pipe.to("cuda")
+
+        # Keep text encoder in float32 to avoid CUBLAS bf16 errors
+        # on certain PyTorch/CUDA versions (e.g., 2.10+cu128 on A100)
+        if hasattr(self.pipe, 'text_encoder') and self.pipe.text_encoder is not None:
+            self.pipe.text_encoder = self.pipe.text_encoder.to(dtype=torch.float32)
+
         self._loaded = True
         print(f"{self.display_name} loaded.")
 
