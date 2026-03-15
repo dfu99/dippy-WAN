@@ -2,9 +2,10 @@
 
 ## Current Priorities
 
-1. **WAN vs CogVideoX quality comparison** — Same avatar+prompt through both backends on PACE, side-by-side
-2. **Async job queue for API** — Add background task processing for production use
-3. **Test RunPod deploy** — User needs to test `deploy_runpod.sh` on actual RunPod spot instance
+1. **Multi-sentence demo video** — 5-sentence chained charades demo on PACE A100 with WAN 14B. PI priority.
+2. **Video caching system** — Cache generated clips by sentence hash for instant replay
+3. **WAN vs CogVideoX quality comparison** — Same avatar+prompt, side-by-side
+4. **Async job queue for API** — Background task processing for production use
 
 ## GPU Policy
 
