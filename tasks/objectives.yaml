@@ -312,8 +312,38 @@ objectives:
       CogVideoX-5B fundamentally requires Ampere+ GPUs for Flash Attention. Without it,
       SDPA materializes the full 113GB attention matrix. For RunPod, RTX 3090 (Ampere,
       24GB, $0.22/hr) is the economical choice. Avoid Turing GPUs (RTX 6000, V100).
-    connects_to: null
+    connects_to: obj-013
     completed_date: "2026-03-14"
+
+  - id: obj-013
+    status: completed
+    statement: "5-sentence chained charades demo video generated on PACE A100"
+    methodology: >
+      Created pace_demo_trajectory.py to generate multi-sentence chained demos.
+      Ran 5 PI-specified sentences (He jumped, She laughed, She laughed at him,
+      He ran, He ran because it started raining) on PACE A100 with WAN 14B.
+      Each sentence: forward pass (act out) + reset pass (return to neutral).
+    metrics:
+      sentences: 5
+      total_frames: 481
+      duration_s: 20.0
+      fps: 24
+      inference_time_min: 46.0
+      model_load_time_s: 1272.9
+      walltime_min: 69
+      per_sentence_time_s: 551
+      peak_vram_gb: 53.13
+      video_size_mb: 14.6
+    figures:
+      - figures/demo_trajectory_keyframes.png
+      - results/demo_trajectory_wan14b.mp4
+    conclusions: >
+      Full 5-sentence chained demo works end-to-end on PACE A100. Each sentence
+      takes ~9 min (forward+reset). Total 20s video at 24fps. Pipeline chains
+      clips seamlessly with forced boundary frames. Next: real avatar image,
+      video caching system, and quality evaluation of gesture accuracy.
+    connects_to: null
+    completed_date: "2026-03-15"
 
 # Example entry (uncomment and fill):
 #  - id: obj-001

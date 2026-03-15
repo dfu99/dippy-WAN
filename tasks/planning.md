@@ -2,7 +2,7 @@
 
 ## Current Priorities
 
-1. **Multi-sentence demo video** — 5-sentence chained charades demo on PACE A100 with WAN 14B. PI priority.
+1. **Real avatar for demo** — Need a proper character image; current demo uses synthetic blue rectangle
 2. **Video caching system** — Cache generated clips by sentence hash for instant replay
 3. **WAN vs CogVideoX quality comparison** — Same avatar+prompt, side-by-side
 4. **Async job queue for API** — Background task processing for production use
@@ -23,6 +23,7 @@
 
 ## Recently Completed
 
+- **5-sentence demo video** — Job 4953901 completed on A100. 481 frames, 20s at 24fps, 46 min inference. `results/demo_trajectory_wan14b.mp4`
 - **PACE RTX 6000 test** — CogVideoX-5B CANNOT run on RTX 6000 (Turing). Needs Ampere+ for Flash Attention. Tested 5 job iterations. RunPod recommendation: RTX 3090 ($0.22/hr).
 - **PACE WAN 14B inference SUCCESS** — Job 4934779 completed on A100. Forward+reset in 10 min, 53GB VRAM. Fixed: venv setup, LoRA CPU fusion, PyTorch 2.10 CUBLAS bug (downgraded to 2.6), 128G RAM for model loading, disk quota cleanup.
 - **alinakai API integration** — `api.py` with FastAPI REST endpoint: POST /generate (sentence+image→clip), GET /clips, GET /backends, GET /health
