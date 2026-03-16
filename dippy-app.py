@@ -92,6 +92,7 @@ import openai
 # ── Import backends ───────────────────────────────────────────────────────────
 
 from backends import get_backend, available_backends, _frame_to_pil
+from clip_cache import ClipCache, _avatar_hash
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,11 @@ COLAB_PINNED_INSTALL_CMD = (
     f"gradio=={PINNED_GRADIO_VERSION} "
     "safetensors sentencepiece peft ftfy imageio-ffmpeg opencv-python"
 )
+
+# ── Clip cache ────────────────────────────────────────────────────────────────
+
+CLIP_CACHE_DIR = os.environ.get("DIPPY_CLIP_CACHE", os.path.join(CACHE_DIR, "clip_cache"))
+_clip_cache = ClipCache(CLIP_CACHE_DIR)
 
 # ── Backend selection ─────────────────────────────────────────────────────────
 
@@ -459,11 +465,41 @@ def generate_trajectory(
     base_seed = random.randint(0, MAX_SEED) if randomize_seed else int(seed)
 
     ground_state_image = _frame_to_pil(input_image.resize((target_w, target_h)))
+    avatar_h = _avatar_hash(ground_state_image)
     clips = []
     all_frames = []
     total_passes = max(1, len(sentences) * 2)
+    cache_hits = 0
 
     for i, sentence in enumerate(sentences):
+        # Check clip cache first
+        cached = _clip_cache.get(sentence, backend_name, avatar_h)
+        if cached:
+            cache_hits += 1
+            clip_path = cached["full_path"]
+            progress((i * 2 + 2) / total_passes,
+                     desc=f"Cache hit {i + 1}/{len(sentences)}: {sentence}")
+            print(f"Cache hit for \"{sentence}\" ({cached.get('total_frames', '?')} frames)")
+            clips.append({"path": clip_path, "sentence": sentence, "cached": True})
+
+            # Load frames from cached video for trajectory stitching
+            import cv2
+            cap = cv2.VideoCapture(clip_path)
+            clip_frames = []
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                clip_frames.append(Image.fromarray(frame_rgb))
+            cap.release()
+
+            if i == 0:
+                all_frames.extend(clip_frames)
+            else:
+                all_frames.extend(clip_frames[1:])
+            continue
+
         forward_seed = base_seed + (i * 2)
         backward_seed = base_seed + (i * 2) + 1
 
@@ -511,19 +547,28 @@ def generate_trajectory(
         backward_frames[0] = forward_last_frame
         backward_frames[-1] = ground_state_image.copy()
 
+        # Store in cache
+        cache_result = _clip_cache.put(
+            sentence, backend_name, avatar_h,
+            fwd_frames=forward_frames, rst_frames=backward_frames,
+            fps=backend.fps,
+            metadata={"steps": int(steps), "guidance": float(guidance_scale)},
+        )
+        clip_path = cache_result["full_path"]
+        clips.append({"path": clip_path, "sentence": sentence, "cached": False})
+
         output_frames = forward_frames + backward_frames[1:]
-
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-            clip_path = tmp.name
-        export_to_video(output_frames, clip_path, fps=backend.fps)
-        clips.append({"path": clip_path, "sentence": sentence})
-
         if i == 0:
             all_frames.extend(output_frames)
         else:
             all_frames.extend(output_frames[1:])
 
-    progress(1.0, desc="Finished")
+    if cache_hits > 0:
+        print(f"Cache: {cache_hits}/{len(sentences)} sentences served from cache")
+
+    stats = _clip_cache.stats()
+    progress(1.0, desc=f"Done — {cache_hits}/{len(sentences)} cached, "
+             f"{stats['entries']} total in cache ({stats['total_size_mb']} MB)")
 
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
         trajectory_path = tmp.name
