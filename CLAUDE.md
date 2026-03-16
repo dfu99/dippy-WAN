@@ -94,4 +94,4 @@ When writing SLURM scripts for the PACE cluster:
 - **H200**: `--gres=gpu:H200:N`. No constraint needed.
 - **Modules**: Always `module load cuda` for GPU jobs
 - **Mail**: `--mail-type=END,FAIL` / `--mail-user=daniel.fu@emory.edu`
-- **Paths**: scratch at `~/scratch/`, project storage at `~/p-yke8-0/`
+- **Paths**: scratch at `~/scratch/` (project code and data live here)

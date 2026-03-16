@@ -21,7 +21,7 @@ set -eo pipefail
 module load cuda
 module load anaconda3
 
-PROJECT_DIR="$HOME/p-yke8-0/dippy-WAN"
+PROJECT_DIR="$HOME/scratch/dippy-WAN"
 CACHE_DIR="$HOME/scratch/hf_cache"
 RESULTS_DIR="$PROJECT_DIR/results"
 VENV_DIR="$HOME/scratch/dippy_venv"

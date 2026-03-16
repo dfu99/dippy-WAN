@@ -23,6 +23,7 @@
 
 ## Recently Completed
 
+- **PACE data migration to scratch** — Moved all data from `~/p-yke8-0/dippy-WAN/` to `~/scratch/dippy-WAN/`. Updated all 5 sbatch scripts, CLAUDE.md, README.md, lessons.md. Old p-yke8-0 path deprecated.
 - **Video clip caching system** — `clip_cache.py` with ClipCache class, integrated into `dippy-app.py`. Cache by (sentence, backend, avatar hash). Normalized matching, file-based persistence, hit rate display.
 - **Avatar test scripts ready** — pace_avatar_test.py + SLURM scripts for WAN (A100) and LTX (A100). 3 AI-generated avatars (ChatGPT, Gemini, Perplexity). Blocked on VPN for submission.
 - **5-sentence demo video** — Job 4953901 completed on A100. 481 frames, 20s at 24fps, 46 min inference. `results/demo_trajectory_wan14b.mp4`

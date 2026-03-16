@@ -93,7 +93,7 @@ python dippy-app.py
 #SBATCH --mail-user=daniel.fu@emory.edu
 
 module load cuda
-cd ~/p-yke8-0/dippy-WAN
+cd ~/scratch/dippy-WAN
 export DIPPY_BACKEND=wan14b
 python dippy-app.py
 ```
