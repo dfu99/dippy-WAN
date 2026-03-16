@@ -55,6 +55,11 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **torchao 0.16 breaks diffusers 0.36.0 on PyTorch 2.6**: `torchao_quantizer.py` references an undefined `logger` at import time. The fix is to uninstall torchao entirely. CogVideoX-5B runs fine in bf16 without int8 quantization on 22GB+ GPUs. Only install torchao on PyTorch 2.10+ (but that has its own CUBLAS bugs on A100).
 - **PyTorch 2.10+cu128 has CUBLAS bugs on A100**: Both bf16 AND float32 matmuls (`cublasGemmEx`, `cublasSgemmStridedBatched`) fail with `CUBLAS_STATUS_INVALID_VALUE` in UMT5 text encoder attention. Not a dtype issue — it's a PyTorch/CUDA compatibility bug. Fix: use PyTorch 2.6+cu124 instead, which is stable on A100.
 
+## Clip Cache
+
+- **Cache key = (normalized_sentence, backend, avatar_hash)**: Sentence normalization (lowercase, strip, collapse whitespace) ensures minor text differences don't cause cache misses. Avatar hash uses a 64x64 thumbnail to be invariant to minor resizing. Different backends produce different quality, so backend is part of the key.
+- **cv2 needed for cache hit frame loading**: When serving from cache, we read the MP4 back into PIL frames via OpenCV (`cv2.VideoCapture`). Make sure `opencv-python` is installed.
+
 ## Gradio
 
 - **frpc binary**: Colab share links need the frpc tunnel binary. The `_ensure_gradio_frpc_binary()` function auto-downloads it if missing.

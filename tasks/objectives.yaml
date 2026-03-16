@@ -366,6 +366,35 @@ objectives:
     connects_to: null
     completed_date: null
 
+  - id: obj-015
+    status: completed
+    statement: "Video clip caching system for instant replay of repeated sentences"
+    methodology: >
+      Built clip_cache.py with ClipCache class that stores forward+reset clips
+      keyed by (normalized_sentence, backend, avatar_hash). Integrated into
+      dippy-app.py generate_trajectory() — on cache hit, frames load from disk
+      with zero inference cost. Normalized matching ensures "He jumped" and
+      "he jumped" resolve to the same entry. Unit tests pass (CPU-only).
+      Simulated saturation with Zipf distribution over 50-word vocab.
+    metrics:
+      cache_key_components: 3
+      normalization: "lowercase, strip, collapse whitespace"
+      avatar_hash_method: "sha256 of 64x64 thumbnail pixels"
+      files_per_entry: 3
+      unit_tests_passed: true
+      simulated_hit_rate_at_200_requests: 86.5
+      simulated_gpu_hours_saved: 26.4
+      simulated_gpu_hours_used: 4.1
+    figures:
+      - figures/cache_saturation_analysis.png
+    conclusions: >
+      The caching layer implements the PI's "saturation strategy." Simulation
+      shows 86.5% hit rate after 200 requests over a 50-word vocab (Zipf
+      distribution), saving 26.4 GPU-hours vs 4.1 used. Next: integrate
+      into api.py for production use.
+    connects_to: null
+    completed_date: "2026-03-16"
+
 # Example entry (uncomment and fill):
 #  - id: obj-001
 #    status: completed        # completed | in-progress | planned
