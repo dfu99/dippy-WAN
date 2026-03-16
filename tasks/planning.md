@@ -3,9 +3,9 @@
 ## Current Priorities
 
 1. **Avatar test on PACE** — Submit pace_avatar_wan.sbatch and pace_avatar_ltx.sbatch once VPN connects. Tests ChatGPT/Gemini/Perplexity avatars with forward+reset on "He jumped".
-2. **Video caching system** — Cache generated clips by sentence hash for instant replay
-3. **WAN vs CogVideoX quality comparison** — Same avatar+prompt, side-by-side
-4. **Async job queue for API** — Background task processing for production use
+2. **WAN vs CogVideoX quality comparison** — Same avatar+prompt, side-by-side
+3. **Async job queue for API** — Background task processing for production use
+4. **Cache integration in API** — Add ClipCache to api.py (already done in dippy-app.py)
 
 ## GPU Policy
 
@@ -23,6 +23,7 @@
 
 ## Recently Completed
 
+- **Video clip caching system** — `clip_cache.py` with ClipCache class, integrated into `dippy-app.py`. Cache by (sentence, backend, avatar hash). Normalized matching, file-based persistence, hit rate display.
 - **Avatar test scripts ready** — pace_avatar_test.py + SLURM scripts for WAN (A100) and LTX (A100). 3 AI-generated avatars (ChatGPT, Gemini, Perplexity). Blocked on VPN for submission.
 - **5-sentence demo video** — Job 4953901 completed on A100. 481 frames, 20s at 24fps, 46 min inference. `results/demo_trajectory_wan14b.mp4`
 - **PACE RTX 6000 test** — CogVideoX-5B CANNOT run on RTX 6000 (Turing). Needs Ampere+ for Flash Attention. Tested 5 job iterations. RunPod recommendation: RTX 3090 ($0.22/hr).
