@@ -342,8 +342,29 @@ objectives:
       takes ~9 min (forward+reset). Total 20s video at 24fps. Pipeline chains
       clips seamlessly with forced boundary frames. Next: real avatar image,
       video caching system, and quality evaluation of gesture accuracy.
-    connects_to: null
+    connects_to: obj-014
     completed_date: "2026-03-15"
+
+  - id: obj-014
+    status: in-progress
+    statement: "Test AI-generated avatars (ChatGPT, Gemini, Perplexity) with WAN and LTX backends"
+    methodology: >
+      Created pace_avatar_test.py — backend-agnostic script that runs forward+reset
+      for each avatar on "He jumped". SLURM scripts for WAN 14B (A100, 128G RAM)
+      and LTX-Video 2B (A100, 64G RAM). Three avatars: ChatGPT (sleek robot),
+      Gemini (translucent blob), Perplexity (egg-shaped bot with detached limbs).
+      Blocked on VPN — GlobalProtect disconnected, cannot SSH to PACE.
+    metrics:
+      avatars_tested: 3
+      backends_planned: 2
+      scripts_created: 3
+      commit: "7803185"
+    figures: []
+    conclusions: >
+      Pipeline code complete. Awaiting VPN connectivity to submit PACE jobs.
+      Expected ~30 min for WAN (3 avatars), ~15 min for LTX (3 avatars).
+    connects_to: null
+    completed_date: null
 
 # Example entry (uncomment and fill):
 #  - id: obj-001
