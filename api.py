@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from backends import get_backend, available_backends
+from clip_cache import ClipCache, _avatar_hash
 
 app = FastAPI(
     title="Dippy API",
@@ -37,6 +38,9 @@ app = FastAPI(
 _backend = None
 _output_dir = Path(os.environ.get("DIPPY_OUTPUT_DIR", "/tmp/dippy-output"))
 _output_dir.mkdir(parents=True, exist_ok=True)
+_clip_cache = ClipCache(
+    os.environ.get("DIPPY_CLIP_CACHE", str(_output_dir / "clip_cache"))
+)
 
 
 def _get_backend():
