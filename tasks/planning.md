@@ -2,7 +2,7 @@
 
 ## Current Priorities
 
-1. **Avatar test on PACE** — Submit pace_avatar_wan.sbatch and pace_avatar_ltx.sbatch once VPN connects. Tests ChatGPT/Gemini/Perplexity avatars with forward+reset on "He jumped".
+1. **Validate last_image loop closure** — Job 5050210 pending on PACE. Check results: does WAN's native first+last frame conditioning produce seamless loops? Compare raw last frame to input.
 2. **WAN vs CogVideoX quality comparison** — Same avatar+prompt, side-by-side
 3. **Async job queue for API** — Background task processing for production use
 4. **Cache integration in API** — Add ClipCache to api.py (already done in dippy-app.py)
@@ -23,6 +23,7 @@
 
 ## Recently Completed
 
+- **Avatar loop closure + last_image conditioning** — Ran 3 avatars × 2 backends on PACE. LTX unusable. WAN+Perplexity best. Discovered faked loop closure. Found & implemented WAN's native `last_image` parameter for true first→last frame generation. Job 5050210 validating.
 - **PACE data migration to scratch** — Moved all data from `~/p-yke8-0/dippy-WAN/` to `~/scratch/dippy-WAN/`. Updated all 5 sbatch scripts, CLAUDE.md, README.md, lessons.md. Old p-yke8-0 path deprecated.
 - **Video clip caching system** — `clip_cache.py` with ClipCache class, integrated into `dippy-app.py`. Cache by (sentence, backend, avatar hash). Normalized matching, file-based persistence, hit rate display.
 - **Avatar test scripts ready** — pace_avatar_test.py + SLURM scripts for WAN (A100) and LTX (A100). 3 AI-generated avatars (ChatGPT, Gemini, Perplexity). Blocked on VPN for submission.

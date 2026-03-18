@@ -392,8 +392,40 @@ objectives:
       shows 86.5% hit rate after 200 requests over a 50-word vocab (Zipf
       distribution), saving 26.4 GPU-hours vs 4.1 used. Next: integrate
       into api.py for production use.
-    connects_to: null
+    connects_to: obj-016
     completed_date: "2026-03-16"
+
+  - id: obj-016
+    status: in-progress
+    statement: "Avatar loop closure analysis and last_image conditioning for seamless chaining"
+    methodology: >
+      Ran WAN 14B + LTX 2B avatar tests on PACE A100 (3 avatars: ChatGPT, Gemini,
+      Perplexity). Discovered test script faked loop closure (forced rst_frames[-1] =
+      ground_state). Removed the fake, measured raw model output. Found diffusers
+      WanImageToVideoPipeline supports last_image parameter for first+last frame
+      conditioning. Updated backends.py to pass last_image, updated pace_avatar_test.py
+      to use it for reset pass. Job 5050210 submitted to validate.
+    metrics:
+      wan14b_fwd_time_s: 101.8
+      wan14b_rst_time_s: 23.1
+      wan14b_total_inference_min: 2.1
+      wan14b_peak_vram_gb: 53.13
+      ltx2b_total_inference_min: 0.2
+      ltx2b_clip_quality: "near-zero motion, unusable"
+      raw_loop_closure_similarity_pct: 96.8
+      raw_loop_closure_mse: 2088
+      perplexity_avatar_selected: true
+      avatars_tested: 3
+      backends_tested: 2
+    figures:
+      - figures/obj016_loop_closure_analysis.png
+    conclusions: >
+      WAN 14B produces high-quality avatar animation; LTX 2B is unusable (near-zero
+      motion). Perplexity avatar has best quality. Without last_image conditioning, the
+      model returns to 96.8% similarity — close but not seamless. The native last_image
+      parameter should produce true seamless loops. Awaiting job 5050210 results.
+    connects_to: null
+    completed_date: null
 
 # Example entry (uncomment and fill):
 #  - id: obj-001

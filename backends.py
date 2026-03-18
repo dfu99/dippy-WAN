@@ -66,8 +66,12 @@ class I2VBackend(abc.ABC):
 
     @abc.abstractmethod
     def generate(self, image, prompt, negative_prompt, height, width,
-                 num_frames, guidance_scale, steps, seed):
-        """Generate frames from an image+prompt. Returns list[PIL.Image]."""
+                 num_frames, guidance_scale, steps, seed, last_image=None):
+        """Generate frames from an image+prompt. Returns list[PIL.Image].
+
+        If last_image is provided, the model conditions on both the first
+        and last frames, generating a smooth transition between them.
+        """
 
     def valid_num_frames(self, requested):
         """Snap requested frame count to nearest model-valid value."""
@@ -195,19 +199,22 @@ class Wan14BBackend(I2VBackend):
         print(f"{self.display_name} loaded.")
 
     def generate(self, image, prompt, negative_prompt, height, width,
-                 num_frames, guidance_scale, steps, seed):
+                 num_frames, guidance_scale, steps, seed, last_image=None):
+        pipe_kwargs = dict(
+            image=image,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            height=height,
+            width=width,
+            num_frames=num_frames,
+            guidance_scale=float(guidance_scale),
+            num_inference_steps=int(steps),
+            generator=torch.Generator(device="cuda").manual_seed(seed),
+        )
+        if last_image is not None:
+            pipe_kwargs["last_image"] = last_image
         with torch.inference_mode():
-            output = self.pipe(
-                image=image,
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                height=height,
-                width=width,
-                num_frames=num_frames,
-                guidance_scale=float(guidance_scale),
-                num_inference_steps=int(steps),
-                generator=torch.Generator(device="cuda").manual_seed(seed),
-            ).frames[0]
+            output = self.pipe(**pipe_kwargs).frames[0]
         frames = _frames_to_list(output)
         return [_frame_to_pil(f) for f in frames]
 
@@ -274,7 +281,7 @@ class CogVideo5BBackend(I2VBackend):
         print(f"{self.display_name} loaded.")
 
     def generate(self, image, prompt, negative_prompt, height, width,
-                 num_frames, guidance_scale, steps, seed):
+                 num_frames, guidance_scale, steps, seed, last_image=None):
         # CogVideoX works best at 480x720, snap to nearest supported
         cog_h = max(480, (int(height) // 16) * 16)
         cog_w = max(720, (int(width) // 16) * 16)
@@ -360,7 +367,7 @@ class LTXVideo2BBackend(I2VBackend):
         print(f"{self.display_name} loaded.")
 
     def generate(self, image, prompt, negative_prompt, height, width,
-                 num_frames, guidance_scale, steps, seed):
+                 num_frames, guidance_scale, steps, seed, last_image=None):
         # LTX works at multiples of 32 for dimensions
         ltx_h = max(256, (int(height) // 32) * 32)
         ltx_w = max(256, (int(width) // 32) * 32)

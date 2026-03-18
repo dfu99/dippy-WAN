@@ -128,6 +128,7 @@ def main():
             "Smooth animation, gentle motion back to rest."
         )
         print(f"Reset pass ({num_frames} frames, {steps} steps)...")
+        print(f"  Using last_image conditioning (first→last frame generation)")
         t2 = time.time()
         rst_frames = backend.generate(
             image=last_forward,
@@ -138,12 +139,17 @@ def main():
             guidance_scale=guidance,
             steps=steps,
             seed=args.seed + 1,
+            last_image=ground_state,
         )
         rst_time = time.time() - t2
         print(f"  Reset: {len(rst_frames)} frames in {rst_time:.1f}s")
 
         rst_frames[0] = last_forward
-        rst_frames[-1] = ground_state.copy()
+
+        # Save the raw (model-generated) last reset frame before any override
+        rst_frames[-1].save(os.path.join(
+            args.output_dir,
+            f"avatar_{args.backend}_{avatar_name}_rst_raw_last.png"))
 
         # Save reset keyframes
         for idx, label in [(0, "f000"), (len(rst_frames)//2, f"f{len(rst_frames)//2:03d}"),
