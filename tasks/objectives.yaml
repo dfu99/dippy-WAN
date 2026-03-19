@@ -396,36 +396,42 @@ objectives:
     completed_date: "2026-03-16"
 
   - id: obj-016
-    status: in-progress
-    statement: "Avatar loop closure analysis and last_image conditioning for seamless chaining"
+    status: completed
+    statement: "Avatar loop closure with last_image conditioning for seamless chaining"
     methodology: >
-      Ran WAN 14B + LTX 2B avatar tests on PACE A100 (3 avatars: ChatGPT, Gemini,
-      Perplexity). Discovered test script faked loop closure (forced rst_frames[-1] =
-      ground_state). Removed the fake, measured raw model output. Found diffusers
-      WanImageToVideoPipeline supports last_image parameter for first+last frame
-      conditioning. Updated backends.py to pass last_image, updated pace_avatar_test.py
-      to use it for reset pass. Job 5050210 submitted to validate.
+      Ran WAN 14B + LTX 2B avatar tests on PACE A100 (3 avatars). Discovered faked loop
+      closure in test script. Found WanImageToVideoPipeline's last_image parameter for
+      first+last frame conditioning. First attempt (job 5050210) failed due to diffusers
+      0.36.0 batch dim mismatch — image embeds [2,seq,dim] vs text [1,seq,dim] when
+      guidance_scale=1.0 (no CFG). Fixed by patching encode_image to concat along sequence
+      dim instead of batch. Job 5052890 succeeded: MSE dropped 63% (2088→775), similarity
+      improved 96.8%→98.8%.
     metrics:
-      wan14b_fwd_time_s: 101.8
-      wan14b_rst_time_s: 23.1
-      wan14b_total_inference_min: 2.1
+      wan14b_fwd_time_s: 86.0
+      wan14b_rst_time_s: 22.9
+      wan14b_total_inference_min: 1.8
       wan14b_peak_vram_gb: 53.13
-      ltx2b_total_inference_min: 0.2
       ltx2b_clip_quality: "near-zero motion, unusable"
-      raw_loop_closure_similarity_pct: 96.8
-      raw_loop_closure_mse: 2088
+      without_lastimage_mse: 2088
+      without_lastimage_similarity_pct: 96.8
+      with_lastimage_mse: 775
+      with_lastimage_similarity_pct: 98.8
+      mse_reduction_pct: 63
       perplexity_avatar_selected: true
       avatars_tested: 3
       backends_tested: 2
+      pace_jobs: "5019752, 5019753, 5043985, 5050210 (FAILED), 5052890"
     figures:
       - figures/obj016_loop_closure_analysis.png
+      - figures/obj016_lastimage_before_after.png
     conclusions: >
-      WAN 14B produces high-quality avatar animation; LTX 2B is unusable (near-zero
-      motion). Perplexity avatar has best quality. Without last_image conditioning, the
-      model returns to 96.8% similarity — close but not seamless. The native last_image
-      parameter should produce true seamless loops. Awaiting job 5050210 results.
+      last_image conditioning measurably improves loop closure (63% MSE reduction).
+      The model is guided toward the target pose but not pixel-perfect (98.8% sim).
+      For production, a subtle cross-fade or the forced snap on the final frame may
+      still be needed, but the transition is much smoother with last_image. LTX 2B
+      is dead for avatar animation. WAN 14B + Perplexity avatar is the production path.
     connects_to: null
-    completed_date: null
+    completed_date: "2026-03-18"
 
 # Example entry (uncomment and fill):
 #  - id: obj-001

@@ -59,6 +59,7 @@ _This file is append-mostly. Only remove entries proven wrong._
 ## Loop Closure
 
 - **WAN supports `last_image` for first+last frame conditioning**: `WanImageToVideoPipeline.__call__()` accepts `last_image` parameter. When provided, the model conditions on both endpoints and generates a smooth transition. Use this for the reset pass instead of forcing `rst_frames[-1] = ground_state`.
+- **diffusers 0.36.0 `last_image` batch dim bug with no-CFG**: When `guidance_scale=1.0` (CausVid LoRA), text embeds are `[1, seq, dim]` but `last_image` makes image embeds `[2, seq, dim]`. The transformer concat crashes. Fix: monkey-patch `encode_image` to concat along sequence dim (dim=1) instead of batch → `[1, 2*seq, dim]`. See `Wan14BBackend.generate()` in `backends.py`.
 - **LTX 2B is unusable for avatar animation**: Near-zero motion output, clip sizes 100x smaller than WAN. LTX may work for other tasks but not I2V charades.
 - **Don't fake test results**: The original `pace_avatar_test.py` forced the last reset frame to equal the input, masking whether the model actually achieved loop closure. Always save raw model output before any post-processing overrides.
 

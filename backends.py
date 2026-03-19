@@ -213,8 +213,23 @@ class Wan14BBackend(I2VBackend):
         )
         if last_image is not None:
             pipe_kwargs["last_image"] = last_image
+            # Patch encode_image to concat along sequence dim instead of batch
+            # dim. The pipeline's default handling creates [2, seq, dim] image
+            # embeds (batch of 2 images), which fails when guidance_scale=1.0
+            # because text embeds are [1, seq, dim]. By concatenating along
+            # dim=1, we get [1, 2*seq, dim] — same batch dim as text.
+            original_encode = self.pipe.encode_image
+            def _encode_seq_concat(images, device):
+                if isinstance(images, list) and len(images) == 2:
+                    e1 = original_encode(images[0], device)
+                    e2 = original_encode(images[1], device)
+                    return torch.cat([e1, e2], dim=1)
+                return original_encode(images, device)
+            self.pipe.encode_image = _encode_seq_concat
         with torch.inference_mode():
             output = self.pipe(**pipe_kwargs).frames[0]
+        if last_image is not None:
+            self.pipe.encode_image = original_encode
         frames = _frames_to_list(output)
         return [_frame_to_pil(f) for f in frames]
 
