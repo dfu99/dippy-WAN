@@ -90,11 +90,15 @@ def main():
         ground_state.save(os.path.join(
             args.output_dir, f"avatar_{args.backend}_{avatar_name}_input.png"))
 
-        # Forward pass
+        # Forward pass — rich prompt that lets the avatar morph and transform
         forward_prompt = (
-            f"The character enthusiastically acts out '{args.sentence}' with big, "
-            "exaggerated body movements, arms moving expressively, full-body "
-            "pantomime gestures. Smooth animation, dynamic motion."
+            "A simple vector-art anime-style robotic character. "
+            "Versatile actor that can morph, don costumes, sprout props, "
+            "and transform its body to embody actions. "
+            "Empty background that can change to match the scene. "
+            f"The character fully embodies '{args.sentence}' — transforming its body, "
+            "sprouting relevant props, and changing the background to match the scene. "
+            "Exaggerated full-body performance, cinematic motion, dramatic poses."
         )
         print(f"Forward pass ({num_frames} frames, {steps} steps)...")
         t1 = time.time()
@@ -123,9 +127,11 @@ def main():
 
         # Reset pass
         reset_prompt = (
-            f"The same character naturally returns from acting out '{args.sentence}' "
-            "back to the original neutral starting pose, arms lowering to sides. "
-            "Smooth animation, gentle motion back to rest."
+            "A simple vector-art anime-style robotic character. "
+            f"The character finishes acting out '{args.sentence}' and smoothly morphs back "
+            "to its original neutral form. Props retract, costume dissolves, background "
+            "fades to empty. The robot returns to its default relaxed standing pose. "
+            "Smooth reverse transformation, gentle motion."
         )
         print(f"Reset pass ({num_frames} frames, {steps} steps)...")
         print(f"  Using last_image conditioning (first→last frame generation)")

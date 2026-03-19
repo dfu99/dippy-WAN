@@ -25,6 +25,64 @@ DEMO_SENTENCES = [
     "He ran because it started raining",
 ]
 
+# Avatar context from the original generation prompt — the character is a
+# versatile, morphable robot designed to act out vocabulary.
+AVATAR_CONTEXT = (
+    "A simple vector-art anime-style robotic character. "
+    "Versatile actor that can morph, don costumes, sprout props, "
+    "and transform its body to embody actions. "
+    "Empty background that can change to match the scene."
+)
+
+# Per-sentence scene descriptions that go beyond generic "acts out" prompts.
+# These let the character morph, add props, change the background — not just wave arms.
+SCENE_DESCRIPTIONS = {
+    "He jumped": (
+        "The robot crouches low, springs upward with a huge leap, legs tucked, "
+        "arms thrown overhead. Ground cracks appear below, motion blur on the jump arc. "
+        "Background shifts to show height — clouds, sky, rooftops below."
+    ),
+    "She laughed": (
+        "The robot doubles over laughing, mouth wide open with visible laugh lines, "
+        "tears of joy flying off, body shaking and bouncing. Sparkle effects and "
+        "comic-style 'HA HA' energy radiating outward. Warm golden background glow."
+    ),
+    "She laughed at him": (
+        "The robot points mockingly at the viewer, leaning back mid-laugh, one hand "
+        "on its belly. A comic spotlight shines on where it's pointing. Exaggerated "
+        "smug expression, sweat drops flying from the embarrassed target direction."
+    ),
+    "He ran": (
+        "The robot sprints at full speed, legs blurring with motion, arms pumping. "
+        "Speed lines and dust clouds trail behind. The background streaks horizontally "
+        "showing trees and scenery rushing past. Dynamic running pose."
+    ),
+    "He ran because it started raining": (
+        "Dark storm clouds roll in overhead, rain begins falling. The robot's expression "
+        "shifts to surprise, it sprouts a tiny umbrella that immediately flips inside out. "
+        "It starts running through puddles, splashing water, coat flapping. "
+        "Lightning flash in the background."
+    ),
+}
+
+
+def build_forward_prompt(sentence):
+    """Build a rich, scene-specific forward prompt for the given sentence."""
+    scene = SCENE_DESCRIPTIONS.get(sentence)
+    if scene:
+        return (
+            f"{AVATAR_CONTEXT} "
+            f"The character performs '{sentence}': {scene} "
+            "Smooth animation, cinematic motion, expressive transformation."
+        )
+    # Fallback for sentences without custom descriptions
+    return (
+        f"{AVATAR_CONTEXT} "
+        f"The character fully embodies '{sentence}' — transforming its body, "
+        "sprouting relevant props, and changing the background to match the scene. "
+        "Exaggerated full-body performance, cinematic motion, dramatic poses."
+    )
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Dippy multi-sentence demo")
@@ -83,11 +141,7 @@ def main():
         print(f"{'='*60}")
 
         # Forward pass
-        forward_prompt = (
-            f"The character enthusiastically acts out '{sentence}' with big, exaggerated "
-            "body movements, arms moving expressively, full-body pantomime gestures. "
-            "Smooth animation, dynamic motion."
-        )
+        forward_prompt = build_forward_prompt(sentence)
         print(f"Forward pass ({num_frames} frames, {args.steps} steps)...")
         t1 = time.time()
         fwd_frames = backend.generate(
@@ -113,11 +167,14 @@ def main():
 
         # Reset pass
         reset_prompt = (
-            f"The same character naturally returns from acting out '{sentence}' "
-            "back to the original neutral starting pose, arms lowering to sides. "
-            "Smooth animation, gentle motion back to rest."
+            f"{AVATAR_CONTEXT} "
+            f"The character finishes acting out '{sentence}' and smoothly morphs back "
+            "to its original neutral form. Props retract, costume dissolves, background "
+            "fades to empty. The robot returns to its default relaxed standing pose. "
+            "Smooth reverse transformation, gentle motion."
         )
         print(f"Reset pass ({num_frames} frames, {args.steps} steps)...")
+        print(f"  Using last_image conditioning → ground state")
         t2 = time.time()
         rst_frames = backend.generate(
             image=last_forward,
@@ -128,13 +185,13 @@ def main():
             guidance_scale=args.guidance_scale,
             steps=args.steps,
             seed=args.seed + (i * 2) + 1,
+            last_image=ground_state,
         )
         rst_time = time.time() - t2
         print(f"  Reset: {len(rst_frames)} frames in {rst_time:.1f}s")
 
-        # Force boundary frames
+        # Force first frame to match forward end for seamless handoff
         rst_frames[0] = last_forward
-        rst_frames[-1] = ground_state.copy()
 
         # Chain: skip first frame of reset (duplicate of forward last)
         clip_frames = fwd_frames + rst_frames[1:]
