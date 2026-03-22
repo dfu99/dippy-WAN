@@ -1,7 +1,9 @@
 """Generate a multi-sentence chained demo video on PACE.
 
-Creates the flagship Dippy demo: multiple charades sentences chained
-seamlessly with forward+reset passes for each.
+3-segment pipeline per sentence:
+  1. Setup: character dons disguise, background slides in
+  2. Action: character performs the sentence
+  3. Reset: props retract, background fades, return to neutral
 
 Usage:
     python pace_demo_trajectory.py --backend wan14b --cache-dir /path/to/cache
@@ -25,78 +27,141 @@ DEMO_SENTENCES = [
     "He ran because it started raining",
 ]
 
-# Avatar context from the original generation prompt — the character is a
-# versatile, morphable robot designed to act out vocabulary.
+# Avatar context — the character is a versatile, morphable robot.
 AVATAR_CONTEXT = (
-    "A simple vector-art anime-style robotic character. "
-    "Versatile actor that can morph, don costumes, sprout props, "
-    "and transform its body to embody actions. "
-    "Empty background that can change to match the scene."
+    "A simple vector-art anime-style robotic character, currently bald with no hair. "
+    "Versatile actor that can morph, don wigs, hair accessories, hats, costumes, "
+    "and sprout props to embody actions. "
+    "The background can fade in, swipe, or slide like stage props — "
+    "it must transition smoothly, never appear or disappear instantly."
 )
 
-# Per-sentence scene descriptions that go beyond generic "acts out" prompts.
-# These let the character morph, add props, change the background — not just wave arms.
-SCENE_DESCRIPTIONS = {
+# Per-sentence descriptions split into setup (costume/bg) and action (performance).
+SCENE_SETUP = {
     "He jumped": (
-        "The robot crouches low, springs upward with a huge leap, legs tucked, "
-        "arms thrown overhead. Ground cracks appear below, motion blur on the jump arc. "
-        "Background shifts to show height — clouds, sky, rooftops below."
+        "The bald robot puts on a sporty headband and athletic shoes. "
+        "A sky backdrop with clouds slides up from below like a stage curtain. "
+        "The robot crouches into a ready position, preparing to jump."
     ),
     "She laughed": (
-        "The robot doubles over laughing, mouth wide open with visible laugh lines, "
-        "tears of joy flying off, body shaking and bouncing. Sparkle effects and "
-        "comic-style 'HA HA' energy radiating outward. Warm golden background glow."
+        "The bald robot dons a curly blonde wig and an oversized pink bow. "
+        "A warm golden spotlight fades in from behind like stage lighting. "
+        "The robot's expression shifts to a wide grin, starting to chuckle."
     ),
     "She laughed at him": (
-        "The robot points mockingly at the viewer, leaning back mid-laugh, one hand "
-        "on its belly. A comic spotlight shines on where it's pointing. Exaggerated "
-        "smug expression, sweat drops flying from the embarrassed target direction."
+        "The bald robot puts on a sassy wig with bangs and a smirk. "
+        "A comic spotlight swipes in from the side, illuminating the scene. "
+        "The robot turns toward the viewer with a mischievous look."
     ),
     "He ran": (
-        "The robot sprints at full speed, legs blurring with motion, arms pumping. "
-        "Speed lines and dust clouds trail behind. The background streaks horizontally "
-        "showing trees and scenery rushing past. Dynamic running pose."
+        "The bald robot puts on bright running shoes and a sweatband. "
+        "A park background with trees and a path slides in from the right "
+        "like a scrolling stage backdrop. The robot shifts to a running stance."
     ),
     "He ran because it started raining": (
-        "Dark storm clouds roll in overhead, rain begins falling. The robot's expression "
-        "shifts to surprise, it sprouts a tiny umbrella that immediately flips inside out. "
-        "It starts running through puddles, splashing water, coat flapping. "
-        "Lightning flash in the background."
+        "Dark storm clouds slowly fade in overhead, first raindrops fall. "
+        "A tiny raincoat materializes onto the robot, it pulls out an umbrella. "
+        "Puddles begin forming on the ground. The sky darkens gradually."
+    ),
+}
+
+SCENE_ACTION = {
+    "He jumped": (
+        "The robot springs upward with a huge athletic leap, legs tucked, "
+        "arms thrown overhead. The sky backdrop reveals more height — clouds "
+        "rush past. Peak of the jump with motion blur and hang time."
+    ),
+    "She laughed": (
+        "The wigged robot doubles over laughing hysterically, mouth wide open, "
+        "tears of joy flying off, body shaking and bouncing with each laugh. "
+        "Sparkle effects and comic energy lines radiate outward."
+    ),
+    "She laughed at him": (
+        "The wigged robot points mockingly at the viewer, leaning way back "
+        "mid-laugh, one hand on its belly. Exaggerated smug expression. "
+        "Sweat drops fly from the embarrassed direction. Finger wagging."
+    ),
+    "He ran": (
+        "The robot sprints at full speed through the park, legs blurring with "
+        "motion, arms pumping hard. Speed lines streak behind. Trees and scenery "
+        "rush past in the background. Dynamic full-speed running."
+    ),
+    "He ran because it started raining": (
+        "Heavy rain pours down, the robot's umbrella flips inside out in the wind. "
+        "The robot runs through splashing puddles, coat flapping, with a panicked "
+        "expression. Lightning flashes illuminate the background."
     ),
 }
 
 
-def build_forward_prompt(sentence):
-    """Build a rich, scene-specific forward prompt for the given sentence."""
-    scene = SCENE_DESCRIPTIONS.get(sentence)
-    if scene:
+def build_setup_prompt(sentence):
+    """Prompt for segment 1: costume up, set the stage."""
+    setup = SCENE_SETUP.get(sentence, "")
+    if setup:
         return (
             f"{AVATAR_CONTEXT} "
-            f"The character performs '{sentence}': {scene} "
-            "Smooth animation, cinematic motion, expressive transformation."
+            f"Setting up for '{sentence}': {setup} "
+            "Smooth transformation, costume materializing, background sliding in."
         )
-    # Fallback for sentences without custom descriptions
     return (
         f"{AVATAR_CONTEXT} "
-        f"The character fully embodies '{sentence}' — transforming its body, "
-        "sprouting relevant props, and changing the background to match the scene. "
-        "Exaggerated full-body performance, cinematic motion, dramatic poses."
+        f"The character prepares to act out '{sentence}' — putting on a relevant "
+        "costume or disguise, sprouting props, and letting the background fade in "
+        "like a stage set. Smooth preparation, anticipation building."
+    )
+
+
+def build_action_prompt(sentence):
+    """Prompt for segment 2: perform the sentence."""
+    action = SCENE_ACTION.get(sentence, "")
+    if action:
+        return (
+            f"{AVATAR_CONTEXT} "
+            f"The costumed character performs '{sentence}': {action} "
+            "Full commitment to the action, peak performance, maximum expressiveness."
+        )
+    return (
+        f"{AVATAR_CONTEXT} "
+        f"The costumed character fully performs '{sentence}' with maximum energy — "
+        "exaggerated full-body movement, peak of the action, dramatic performance."
+    )
+
+
+def build_reset_prompt(sentence):
+    """Prompt for segment 3: tear down costume and background."""
+    return (
+        f"{AVATAR_CONTEXT} "
+        f"The character finishes '{sentence}' and smoothly returns to neutral. "
+        "Wig and accessories dissolve away, props retract into the body, "
+        "costume fades off. Background slides out or fades to empty. "
+        "The bald robot returns to its default relaxed standing pose."
     )
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Dippy multi-sentence demo")
+    p = argparse.ArgumentParser(description="Dippy 3-segment trajectory demo")
     p.add_argument("--backend", default="wan14b")
     p.add_argument("--cache-dir", default=".hf_cache")
     p.add_argument("--output-dir", default="results")
     p.add_argument("--image", default=None, help="Avatar image path")
     p.add_argument("--num-frames", type=int, default=49)
-    p.add_argument("--steps", type=int, default=30)
-    p.add_argument("--guidance-scale", type=float, default=6.0)
+    p.add_argument("--steps", type=int, default=4)
+    p.add_argument("--guidance-scale", type=float, default=0.7)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--sentences", nargs="*", default=None,
                    help="Override demo sentences")
     return p.parse_args()
+
+
+def save_keyframes(frames, output_dir, prefix):
+    """Save 5 evenly-spaced keyframes."""
+    n = len(frames)
+    for kidx, klabel in [(0, "f000"),
+                          (n // 4, f"f{n // 4:03d}"),
+                          (n // 2, f"f{n // 2:03d}"),
+                          (3 * n // 4, f"f{3 * n // 4:03d}"),
+                          (n - 1, f"f{n - 1:03d}")]:
+        frames[kidx].save(os.path.join(output_dir, f"{prefix}_{klabel}.png"))
 
 
 def main():
@@ -110,6 +175,7 @@ def main():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
     print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
     print(f"Backend: {args.backend}")
+    print(f"Pipeline: 3-segment (setup → action → reset)")
     print(f"Sentences: {len(sentences)}")
     for i, s in enumerate(sentences):
         print(f"  {i+1}. {s}")
@@ -140,77 +206,85 @@ def main():
         print(f"Sentence {i+1}/{len(sentences)}: \"{sentence}\"")
         print(f"{'='*60}")
 
-        # Forward pass
-        forward_prompt = build_forward_prompt(sentence)
-        print(f"Forward pass ({num_frames} frames, {args.steps} steps)...")
+        seed_base = args.seed + (i * 3)
+
+        # ── Segment 1: SETUP (costume + background) ──
+        setup_prompt = build_setup_prompt(sentence)
+        print(f"  Setup ({num_frames} frames)...")
         t1 = time.time()
-        fwd_frames = backend.generate(
+        setup_frames = backend.generate(
             image=ground_state,
-            prompt=forward_prompt,
+            prompt=setup_prompt,
             negative_prompt="blurry, static, low quality, distorted",
             height=480, width=720,
             num_frames=num_frames,
             guidance_scale=args.guidance_scale,
             steps=args.steps,
-            seed=args.seed + (i * 2),
+            seed=seed_base,
         )
-        fwd_time = time.time() - t1
-        print(f"  Forward: {len(fwd_frames)} frames in {fwd_time:.1f}s")
+        setup_time = time.time() - t1
+        setup_frames[0] = ground_state.copy()
+        last_setup = setup_frames[-1].copy()
+        save_keyframes(setup_frames, args.output_dir, f"demo_s{i+1}_setup")
+        print(f"    {len(setup_frames)} frames in {setup_time:.1f}s")
 
-        # Force first frame to match ground state
-        fwd_frames[0] = ground_state.copy()
-        last_forward = fwd_frames[-1].copy()
-
-        # Save forward keyframe
-        fwd_frames[len(fwd_frames)//2].save(
-            os.path.join(args.output_dir, f"demo_s{i+1}_fwd_mid.png"))
-
-        # Reset pass
-        reset_prompt = (
-            f"{AVATAR_CONTEXT} "
-            f"The character finishes acting out '{sentence}' and smoothly morphs back "
-            "to its original neutral form. Props retract, costume dissolves, background "
-            "fades to empty. The robot returns to its default relaxed standing pose. "
-            "Smooth reverse transformation, gentle motion."
-        )
-        print(f"Reset pass ({num_frames} frames, {args.steps} steps)...")
-        print(f"  Using last_image conditioning → ground state")
+        # ── Segment 2: ACTION (perform the sentence) ──
+        action_prompt = build_action_prompt(sentence)
+        print(f"  Action ({num_frames} frames)...")
         t2 = time.time()
-        rst_frames = backend.generate(
-            image=last_forward,
+        action_frames = backend.generate(
+            image=last_setup,
+            prompt=action_prompt,
+            negative_prompt="blurry, static, low quality, distorted",
+            height=480, width=720,
+            num_frames=num_frames,
+            guidance_scale=args.guidance_scale,
+            steps=args.steps,
+            seed=seed_base + 1,
+        )
+        action_time = time.time() - t2
+        action_frames[0] = last_setup
+        last_action = action_frames[-1].copy()
+        save_keyframes(action_frames, args.output_dir, f"demo_s{i+1}_action")
+        print(f"    {len(action_frames)} frames in {action_time:.1f}s")
+
+        # ── Segment 3: RESET (remove costume, clear background) ──
+        reset_prompt = build_reset_prompt(sentence)
+        print(f"  Reset ({num_frames} frames, last_image → ground state)...")
+        t3 = time.time()
+        reset_frames = backend.generate(
+            image=last_action,
             prompt=reset_prompt,
             negative_prompt="blurry, static, low quality, distorted",
             height=480, width=720,
             num_frames=num_frames,
             guidance_scale=args.guidance_scale,
             steps=args.steps,
-            seed=args.seed + (i * 2) + 1,
+            seed=seed_base + 2,
             last_image=ground_state,
         )
-        rst_time = time.time() - t2
-        print(f"  Reset: {len(rst_frames)} frames in {rst_time:.1f}s")
+        reset_time = time.time() - t3
+        reset_frames[0] = last_action
+        save_keyframes(reset_frames, args.output_dir, f"demo_s{i+1}_reset")
+        print(f"    {len(reset_frames)} frames in {reset_time:.1f}s")
 
-        # Force first frame to match forward end for seamless handoff
-        rst_frames[0] = last_forward
+        total_time = setup_time + action_time + reset_time
+        clip_times.append(total_time)
 
-        # Chain: skip first frame of reset (duplicate of forward last)
-        clip_frames = fwd_frames + rst_frames[1:]
-        clip_times.append(fwd_time + rst_time)
+        # Chain: setup + action[1:] + reset[1:] (skip boundary dupes)
+        clip_frames = setup_frames + action_frames[1:] + reset_frames[1:]
 
-        # Append to trajectory (skip first frame after first clip)
         if i == 0:
             all_frames.extend(clip_frames)
         else:
             all_frames.extend(clip_frames[1:])
 
-        print(f"  Clip: {len(clip_frames)} frames, {fwd_time + rst_time:.1f}s total")
+        print(f"  Clip: {len(clip_frames)} frames, {total_time:.1f}s total")
         print(f"  Peak VRAM: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB")
 
-    # Save individual clip videos
+    # Save trajectory video
     try:
         from diffusers.utils import export_to_video
-
-        # Save full trajectory
         traj_path = os.path.join(args.output_dir, f"demo_trajectory_{args.backend}.mp4")
         export_to_video(all_frames, traj_path, fps=backend.fps)
         print(f"\nTrajectory: {traj_path} ({len(all_frames)} frames, "
@@ -221,15 +295,16 @@ def main():
     # Summary
     total_inference = sum(clip_times)
     print(f"\n{'='*60}")
-    print(f"=== Demo Summary ===")
+    print(f"=== Demo Summary (3-segment pipeline) ===")
     print(f"Backend: {args.backend}")
     print(f"Sentences: {len(sentences)}")
+    print(f"Segments per sentence: 3 (setup → action → reset)")
     print(f"Total frames: {len(all_frames)}")
     print(f"Duration: {len(all_frames)/backend.fps:.1f}s at {backend.fps} fps")
     print(f"Model load: {load_time:.1f}s")
     print(f"Total inference: {total_inference:.1f}s ({total_inference/60:.1f} min)")
     for i, (s, t) in enumerate(zip(sentences, clip_times)):
-        print(f"  {i+1}. \"{s}\" — {t:.1f}s")
+        print(f"  {i+1}. \"{s}\" — {t:.1f}s (3 segments)")
     print(f"Peak VRAM: {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB")
 
     backend.unload()
