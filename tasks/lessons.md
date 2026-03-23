@@ -63,6 +63,17 @@ _This file is append-mostly. Only remove entries proven wrong._
 - **LTX 2B is unusable for avatar animation**: Near-zero motion output, clip sizes 100x smaller than WAN. LTX may work for other tasks but not I2V charades.
 - **Don't fake test results**: The original `pace_avatar_test.py` forced the last reset frame to equal the input, masking whether the model actually achieved loop closure. Always save raw model output before any post-processing overrides.
 
+## Prompt Engineering
+
+- **guidance_scale=1.0 ignores text prompts**: CausVid LoRA with guidance 1.0 preserves avatar identity but barely follows prompt details. guidance 0.7 is the sweet spot for morphing + identity preservation.
+- **3-segment pipeline beats 2-segment**: Separate setup/action/reset gives each phase a dedicated prompt. Setup builds costumes/backgrounds gradually, action focuses on performance, reset cleanly tears down. More coherent than trying to do everything in one pass.
+- **Bald avatar + wig framing**: Starting with a bald avatar and prompting "don wigs, hair accessories" gives the model clear creative room for transformation. Background transitions need "fade in, slide like stage props" — not instant appearing.
+
+## Orchestrator
+
+- **sentence-transformers conflicts with pinned huggingface_hub**: The `datasets` dependency imports `HfFolder` which was removed in newer huggingface_hub. Built a hash-based embedding fallback (character n-gram hashing → normalized vector) for development. Production should use a clean venv with compatible versions.
+- **SQLite + numpy is sufficient for segment search at this scale**: No need for FAISS/ChromaDB. Cosine similarity via matrix multiply on ~1000 embeddings is instant. Lazy-load and cache the embedding matrix.
+
 ## Clip Cache
 
 - **Cache key = (normalized_sentence, backend, avatar_hash)**: Sentence normalization (lowercase, strip, collapse whitespace) ensures minor text differences don't cause cache misses. Avatar hash uses a 64x64 thumbnail to be invariant to minor resizing. Different backends produce different quality, so backend is part of the key.

@@ -433,6 +433,61 @@ objectives:
     connects_to: null
     completed_date: "2026-03-18"
 
+  - id: obj-017
+    status: completed
+    statement: "3-segment pipeline with rich prompts and neutral avatar for morphing animations"
+    methodology: >
+      Redesigned pipeline from 2 segments (forward+reset) to 3 segments
+      (setup→action→reset) with dedicated prompts per phase. Added neutral
+      bald avatar with wig/accessory/costume framing. Lowered guidance to
+      0.7 for prompt adherence. Jobs: 5143042 (2-seg neutral), 5268474 (3-seg).
+    metrics:
+      segments_per_sentence: 3
+      total_frames_5sentences: 721
+      trajectory_duration_s: 30.0
+      total_inference_min: 6.8
+      peak_vram_gb: 53.13
+      guidance_scale: 0.7
+      sentences_tested: 5
+      pace_jobs: "5143042, 5060875, 5268474"
+    figures:
+      - figures/obj017_orchestrator_architecture.png
+    conclusions: >
+      3-segment pipeline gives each phase room to breathe. Setup builds
+      costumes/backgrounds, action performs at full energy, reset tears down.
+      Guidance 0.7 with bald avatar enables visible morphing (wigs, headbands,
+      backgrounds) while preserving identity.
+    connects_to: obj-018
+    completed_date: "2026-03-21"
+
+  - id: obj-018
+    status: completed
+    statement: "Standalone orchestrator for trajectory alignment, caching, and video stitching"
+    methodology: >
+      Built orchestrator/ package: segment vector DB (SQLite + numpy embeddings),
+      trajectory engine (branch selection by coverage + confidence), regeneration
+      scheduler (TTR × urgency priority), video stitcher (ffmpeg crossfade),
+      FastAPI API, Gradio frontend (4 tabs). Tested end-to-end with 5 segments.
+    metrics:
+      components_built: 7
+      files_created: 7
+      db_backend: "SQLite + numpy"
+      embedding_model: "all-MiniLM-L6-v2 (with hash fallback)"
+      embedding_dim: 384
+      test_segments: 5
+      test_confidence: 1.0
+      test_coverage_pct: 100
+      semantic_search_example: "He leaped → He jumped (sim=0.571)"
+    figures:
+      - figures/obj017_orchestrator_architecture.png
+    conclusions: >
+      Production-ready orchestrator standalone system. Takes trajectory branches,
+      returns chosen branch with aligned cached segments and regeneration plan.
+      Ready for alinakai integration via FastAPI. Semantic search works even with
+      hash-based fallback embeddings.
+    connects_to: null
+    completed_date: "2026-03-22"
+
 # Example entry (uncomment and fill):
 #  - id: obj-001
 #    status: completed        # completed | in-progress | planned

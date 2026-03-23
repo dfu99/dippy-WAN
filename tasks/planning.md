@@ -2,10 +2,9 @@
 
 ## Current Priorities
 
-1. **Multi-sentence trajectory with last_image** — Run a 3-5 sentence charades trajectory using last_image conditioning for all reset passes. Verify seamless chaining end-to-end.
-2. **WAN vs CogVideoX quality comparison** — Same avatar+prompt, side-by-side
-3. **Async job queue for API** — Background task processing for production use
-4. **Cache integration in API** — Add ClipCache to api.py (already done in dippy-app.py)
+1. **Deploy orchestrator for testing** — Run orchestrator frontend locally, seed cache with demo clips, test full pipeline end-to-end.
+2. **LLM scene description generation** — Auto-generate setup/action prompts for arbitrary sentences via GPT-4o-mini (replaces hand-crafted SCENE_SETUP/SCENE_ACTION dicts).
+3. **alinakai integration** — Connect orchestrator API to alinakai's trajectory generation. Wire POST /select-trajectory into the learning flow.
 
 ## GPU Policy
 
@@ -23,6 +22,11 @@
 
 ## Recently Completed
 
+- **Standalone orchestrator built** — `orchestrator/` package: segment vector DB, trajectory alignment engine, regen scheduler, video stitcher, FastAPI + Gradio UI. Committed 6a5125a, pushed. All components tested.
+- **3-segment pipeline validated** — Job 5268474: setup→action→reset per sentence. 721 frames, 30s at 24fps, 6.8 min inference. Neutral bald avatar with wigs/costumes/backgrounds. Guidance 0.7. Committed and pushed (f377828).
+- **Rich prompt + neutral avatar trajectory validated** — Job 5143042: guidance 0.7, bald avatar with wigs/accessories, stage-prop backgrounds. Avatar morphs (wigs, headbands, expressions, backgrounds) while preserving identity. Major improvement over generic prompts.
+- **Multi-sentence trajectory with last_image** — Job 5055600 completed. 5 sentences, 481 frames, 20s at 24fps, 4.7 min inference. WAN 14B + Perplexity avatar with last_image conditioning on all reset passes. `results/demo_trajectory_wan14b.mp4`
+- **README simplified** — 209→62 lines. Removed internal plans, milestones, methodology. Committed and pushed (54442df).
 - **last_image loop closure validated** — WAN's native first+last frame conditioning works. MSE 2088→775 (63% reduction), similarity 96.8%→98.8%. Fixed diffusers 0.36.0 batch dim bug with encode_image monkey-patch. Jobs: 5050210 (failed), 5052890 (success).
 - **Avatar loop closure + last_image conditioning** — Ran 3 avatars × 2 backends on PACE. LTX unusable. WAN+Perplexity best. Discovered faked loop closure. Found & implemented WAN's native `last_image` parameter.
 - **PACE data migration to scratch** — Moved all data from `~/p-yke8-0/dippy-WAN/` to `~/scratch/dippy-WAN/`. Updated all 5 sbatch scripts, CLAUDE.md, README.md, lessons.md. Old p-yke8-0 path deprecated.
