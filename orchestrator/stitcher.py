@@ -110,21 +110,36 @@ def _stitch_concat(
         list_path = f.name
 
     try:
-        subprocess.run(
+        # Use stream copy first (fast), fall back to re-encode if it fails
+        result = subprocess.run(
             [
                 "ffmpeg", "-y",
                 "-f", "concat",
                 "-safe", "0",
                 "-i", list_path,
-                "-c:v", "libx264",
-                "-r", str(fps),
-                "-pix_fmt", "yuv420p",
+                "-c", "copy",
                 "-movflags", "+faststart",
                 output_path,
             ],
             capture_output=True,
-            check=True,
         )
+        if result.returncode != 0:
+            # Re-encode if stream copy fails (mixed codecs/formats)
+            subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-f", "concat",
+                    "-safe", "0",
+                    "-i", list_path,
+                    "-vf", f"fps={fps},format=yuv420p",
+                    "-c:v", "libx264",
+                    "-preset", "fast",
+                    "-movflags", "+faststart",
+                    output_path,
+                ],
+                capture_output=True,
+                check=True,
+            )
     finally:
         Path(list_path).unlink(missing_ok=True)
 
