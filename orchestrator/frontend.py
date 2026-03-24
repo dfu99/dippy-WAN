@@ -19,8 +19,10 @@ from .trajectory_engine import TrajectoryEngine
 from .regen_scheduler import RegenScheduler
 from .stitcher import stitch_segments
 
-DB_PATH = os.environ.get("DIPPY_DB_PATH", "data/segments.db")
-STITCH_DIR = os.environ.get("DIPPY_STITCH_DIR", "data/stitched")
+from .config import settings
+
+DB_PATH = settings.db_path
+STITCH_DIR = settings.stitch_dir
 
 
 def _get_db():

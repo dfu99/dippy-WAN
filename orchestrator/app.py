@@ -25,15 +25,11 @@ from .models import (
     TrajectoryRequest,
     TrajectoryResponse,
 )
+from .config import settings
 from .segment_db import SegmentDB
 from .trajectory_engine import TrajectoryEngine
 from .regen_scheduler import RegenScheduler
 from .stitcher import stitch_segments
-
-# ── Configuration ────────────────────────────────────────────────────────────
-
-DB_PATH = os.environ.get("DIPPY_DB_PATH", "data/segments.db")
-STITCH_OUTPUT_DIR = os.environ.get("DIPPY_STITCH_DIR", "data/stitched")
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -51,7 +47,7 @@ _scheduler: Optional[RegenScheduler] = None
 def get_db() -> SegmentDB:
     global _db
     if _db is None:
-        _db = SegmentDB(DB_PATH)
+        _db = SegmentDB(settings.db_path)
     return _db
 
 
@@ -75,7 +71,7 @@ def get_scheduler() -> RegenScheduler:
 @app.get("/health", response_model=HealthResponse)
 def health():
     db = get_db()
-    return HealthResponse(status="ok", segments=db.count(), db_path=DB_PATH)
+    return HealthResponse(status="ok", segments=db.count(), db_path=settings.db_path)
 
 
 @app.post("/select-trajectory", response_model=TrajectoryResponse)
@@ -163,7 +159,7 @@ def stitch(req: StitchRequest):
             )
         video_paths.append(seg["video_path"])
 
-    output_dir = Path(STITCH_OUTPUT_DIR)
+    output_dir = Path(settings.stitch_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = str(
         output_dir / f"trajectory_{'_'.join(req.segment_ids[:3])}.mp4"
@@ -181,7 +177,7 @@ def stitch(req: StitchRequest):
 @app.get("/stitch/{filename}")
 def serve_stitched(filename: str):
     """Serve a previously stitched video file."""
-    path = Path(STITCH_OUTPUT_DIR) / filename
+    path = Path(settings.stitch_dir) / filename
     if not path.exists():
         raise HTTPException(404, "Stitched video not found")
     return FileResponse(str(path), media_type="video/mp4")

@@ -63,8 +63,12 @@ class SceneDescription:
     source: str  # "llm", "cache", or "fallback"
 
 
-# Simple disk cache
-_CACHE_DIR = Path(os.environ.get("DIPPY_SCENE_CACHE", "data/scene_cache"))
+# Simple disk cache — use config if available, else env var fallback
+try:
+    from .config import settings as _cfg
+    _CACHE_DIR = Path(_cfg.scene_cache_dir)
+except ImportError:
+    _CACHE_DIR = Path(os.environ.get("DIPPY_SCENE_CACHE", "data/scene_cache"))
 
 
 def _cache_key(sentence: str) -> str:
