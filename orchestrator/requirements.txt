@@ -1,0 +1,26 @@
+# Dippy Orchestrator — standalone dependencies
+# Install: pip install -r orchestrator/requirements.txt
+
+# API + validation
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
+
+# Frontend
+gradio>=4.0.0
+
+# Embeddings (production — better semantic matching)
+# Uncomment if huggingface_hub version is compatible:
+# sentence-transformers>=2.2.0
+
+# Core
+numpy>=1.24.0
+
+# Video stitching (requires ffmpeg system binary)
+# apt install ffmpeg  OR  conda install ffmpeg
+
+# LLM scene generation (optional — falls back to templates without it)
+openai>=1.0.0
+
+# Testing
+pytest>=7.0.0
