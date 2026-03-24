@@ -17,40 +17,47 @@ from PIL import Image
 
 from backends import get_backend
 
-AVATAR_CONTEXT = (
-    "A simple vector-art anime-style robotic character, currently bald with no hair. "
-    "Versatile actor that can morph, don wigs, hair accessories, hats, costumes, "
-    "and sprout props to embody actions. "
-    "The background can fade in, swipe, or slide like stage props — "
-    "it must transition smoothly, never appear or disappear instantly."
-)
-
-
-def build_setup_prompt(sentence):
-    return (
-        f"{AVATAR_CONTEXT} "
-        f"The character prepares to act out '{sentence}' — putting on a relevant "
-        "costume or disguise, sprouting props, and letting the background fade in "
-        "like a stage set. Smooth preparation, anticipation building."
+# Use LLM-generated scene descriptions when available, else fallback to generic
+try:
+    from orchestrator.scene_gen import (
+        build_setup_prompt, build_action_prompt, build_reset_prompt,
+    )
+    print("Using LLM scene description generator (orchestrator.scene_gen)")
+except ImportError:
+    # Fallback for PACE where orchestrator may not be installed
+    AVATAR_CONTEXT = (
+        "A simple vector-art anime-style robotic character, currently bald with no hair. "
+        "Versatile actor that can morph, don wigs, hair accessories, hats, costumes, "
+        "and sprout props to embody actions. "
+        "The background can fade in, swipe, or slide like stage props — "
+        "it must transition smoothly, never appear or disappear instantly."
     )
 
+    def build_setup_prompt(sentence):
+        return (
+            f"{AVATAR_CONTEXT} "
+            f"The character prepares to act out '{sentence}' — putting on a relevant "
+            "costume or disguise, sprouting props, and letting the background fade in "
+            "like a stage set. Smooth preparation, anticipation building."
+        )
 
-def build_action_prompt(sentence):
-    return (
-        f"{AVATAR_CONTEXT} "
-        f"The costumed character fully performs '{sentence}' with maximum energy — "
-        "exaggerated full-body movement, peak of the action, dramatic performance."
-    )
+    def build_action_prompt(sentence):
+        return (
+            f"{AVATAR_CONTEXT} "
+            f"The costumed character fully performs '{sentence}' with maximum energy — "
+            "exaggerated full-body movement, peak of the action, dramatic performance."
+        )
 
+    def build_reset_prompt(sentence):
+        return (
+            f"{AVATAR_CONTEXT} "
+            f"The character finishes '{sentence}' and smoothly returns to neutral. "
+            "Wig and accessories dissolve away, props retract into the body, "
+            "costume fades off. Background slides out or fades to empty. "
+            "The bald robot returns to its default relaxed standing pose."
+        )
 
-def build_reset_prompt(sentence):
-    return (
-        f"{AVATAR_CONTEXT} "
-        f"The character finishes '{sentence}' and smoothly returns to neutral. "
-        "Wig and accessories dissolve away, props retract into the body, "
-        "costume fades off. Background slides out or fades to empty. "
-        "The bald robot returns to its default relaxed standing pose."
-    )
+    print("Using fallback prompt templates (orchestrator not available)")
 
 
 def parse_args():
