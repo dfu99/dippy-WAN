@@ -8,14 +8,23 @@ Usage:
 """
 
 import os
-import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Form
+from fastapi.responses import FileResponse
 
+from .models import (
+    AddSegmentRequest,
+    AddSegmentResponse,
+    HealthResponse,
+    SearchResponse,
+    SegmentListResponse,
+    StitchRequest,
+    StitchResult,
+    TrajectoryRequest,
+    TrajectoryResponse,
+)
 from .segment_db import SegmentDB
 from .trajectory_engine import TrajectoryEngine
 from .regen_scheduler import RegenScheduler
@@ -24,9 +33,7 @@ from .stitcher import stitch_segments
 # ── Configuration ────────────────────────────────────────────────────────────
 
 DB_PATH = os.environ.get("DIPPY_DB_PATH", "data/segments.db")
-STITCH_OUTPUT_DIR = os.environ.get(
-    "DIPPY_STITCH_DIR", "data/stitched"
-)
+STITCH_OUTPUT_DIR = os.environ.get("DIPPY_STITCH_DIR", "data/stitched")
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -62,66 +69,26 @@ def get_scheduler() -> RegenScheduler:
     return _scheduler
 
 
-# ── Request/Response Models ──────────────────────────────────────────────────
-
-
-class TrajectoryRequest(BaseModel):
-    branches: list[list[str]] = Field(
-        ..., description="List of trajectory branches, each a list of sentences"
-    )
-    user_proficiency: float = Field(
-        0.5, ge=0.0, le=1.0, description="User proficiency (0=beginner, 1=fluent)"
-    )
-    similarity_threshold: float = Field(
-        0.75, ge=0.0, le=1.0, description="Minimum similarity for cache hit"
-    )
-
-
-class AddSegmentRequest(BaseModel):
-    sentence: str
-    video_path: str
-    backend: str = "wan14b"
-    avatar_hash: str = ""
-    duration_s: float = 0.0
-    num_frames: int = 0
-    fps: int = 24
-    prompt_setup: str = ""
-    prompt_action: str = ""
-    prompt_reset: str = ""
-
-
-class StitchRequest(BaseModel):
-    segment_ids: list[str] = Field(
-        ..., description="Ordered list of segment IDs to stitch"
-    )
-    crossfade_s: float = Field(0.3, ge=0.0, le=2.0)
-    fps: int = Field(24, ge=1, le=60)
-
-
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health():
     db = get_db()
-    return {"status": "ok", "segments": db.count(), "db_path": DB_PATH}
+    return HealthResponse(status="ok", segments=db.count(), db_path=DB_PATH)
 
 
-@app.post("/select-trajectory")
+@app.post("/select-trajectory", response_model=TrajectoryResponse)
 def select_trajectory(req: TrajectoryRequest):
     """Evaluate trajectory branches and select the best one.
 
     Returns the chosen branch with per-sentence alignment, confidence score,
     and a prioritized regeneration plan for poorly-aligned segments.
     """
-    if not req.branches:
-        raise HTTPException(400, "At least one branch is required")
-
     engine = get_engine()
     engine.similarity_threshold = req.similarity_threshold
     selection = engine.select_trajectory(req.branches)
 
-    # Build regeneration plan for the chosen branch
     scheduler = get_scheduler()
     regen_plan = scheduler.build_plan(
         gaps=selection.chosen.gaps,
@@ -130,17 +97,17 @@ def select_trajectory(req: TrajectoryRequest):
         total_sentences=len(selection.chosen.sentences),
     )
 
-    return {
-        "selection": selection.to_dict(),
-        "regeneration_plan": regen_plan.to_dict(),
-    }
+    return TrajectoryResponse(
+        selection=selection.to_dict(),
+        regeneration_plan=regen_plan.to_dict(),
+    )
 
 
-@app.get("/segments")
+@app.get("/segments", response_model=SegmentListResponse)
 def list_segments():
     """List all cached segments."""
     db = get_db()
-    return {"segments": db.get_all_segments(), "count": db.count()}
+    return SegmentListResponse(segments=db.get_all_segments(), count=db.count())
 
 
 @app.get("/segments/{segment_id}")
@@ -153,7 +120,7 @@ def get_segment(segment_id: str):
     return seg
 
 
-@app.post("/segments")
+@app.post("/segments", response_model=AddSegmentResponse)
 def add_segment(req: AddSegmentRequest):
     """Add a video segment to the cache."""
     db = get_db()
@@ -169,7 +136,7 @@ def add_segment(req: AddSegmentRequest):
         prompt_action=req.prompt_action,
         prompt_reset=req.prompt_reset,
     )
-    return {"segment_id": segment_id, "sentence": req.sentence}
+    return AddSegmentResponse(segment_id=segment_id, sentence=req.sentence)
 
 
 @app.delete("/segments/{segment_id}")
@@ -181,7 +148,7 @@ def delete_segment(segment_id: str):
     raise HTTPException(404, f"Segment {segment_id} not found")
 
 
-@app.post("/stitch")
+@app.post("/stitch", response_model=StitchResult)
 def stitch(req: StitchRequest):
     """Stitch cached segments into a single trajectory video."""
     db = get_db()
@@ -208,7 +175,7 @@ def stitch(req: StitchRequest):
         crossfade_duration=req.crossfade_s,
         fps=req.fps,
     )
-    return result
+    return StitchResult(**result)
 
 
 @app.get("/stitch/{filename}")
@@ -220,9 +187,9 @@ def serve_stitched(filename: str):
     return FileResponse(str(path), media_type="video/mp4")
 
 
-@app.post("/search")
+@app.post("/search", response_model=SearchResponse)
 def search_segments(sentence: str = Form(...), top_k: int = Form(5)):
     """Search for cached segments similar to a sentence."""
     db = get_db()
     results = db.search_nearest(sentence, top_k=top_k)
-    return {"query": sentence, "results": results}
+    return SearchResponse(query=sentence, results=results)
