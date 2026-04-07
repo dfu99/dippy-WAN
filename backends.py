@@ -4,11 +4,11 @@ Multi-backend I2V pipeline abstraction for Dippy.
 Supports:
   - wan14b:     WAN 2.1 I2V 14B (original, requires A100/3090 24GB+)
   - cogvideo5b: CogVideoX-5B-I2V (runs on T4 16GB with int8 quantization)
-  - ltx2b:      LTX-Video 2B (runs on T4 16GB with fp16/fp8)
+  - ltx2b:      LTX-Video 2B (runs on T4/Mac, ~8GB fp16, MPS-compatible)
 
 Usage:
-    backend = get_backend("cogvideo5b")
-    backend.load(cache_dir="/content/hf_cache")
+    backend = get_backend("ltx2b")
+    backend.load(cache_dir=".hf_cache")
     frames = backend.generate(image=pil_img, prompt="...", ...)
 """
 
@@ -17,6 +17,15 @@ import abc
 import numpy as np
 import torch
 from PIL import Image
+
+
+def _get_device():
+    """Auto-detect best available device: cuda > mps > cpu."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
 
 # ── Registry ──────────────────────────────────────────────────────────────────
 
@@ -85,6 +94,8 @@ class I2VBackend(abc.ABC):
         self._loaded = False
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
 
     @property
     def is_loaded(self):
@@ -324,9 +335,9 @@ class CogVideo5BBackend(I2VBackend):
 
 @register_backend("ltx2b")
 class LTXVideo2BBackend(I2VBackend):
-    display_name = "LTX-Video 2B (T4-friendly)"
+    display_name = "LTX-Video 2B (T4/Mac-friendly)"
     vram_gb = "~8 GB fp16"
-    description = "Fast generation, lower quality. Runs easily on T4."
+    description = "Fast generation, lower quality. Runs on T4 or Apple Silicon Mac."
     default_steps = 30
     default_guidance = 3.0
     fps = 24
@@ -354,22 +365,29 @@ class LTXVideo2BBackend(I2VBackend):
             self._use_cond_pipeline = False
 
         print(f"Loading {self.display_name}...")
+        device = _get_device()
+
+        # MPS doesn't support bfloat16 well — use float16 on Mac
+        dtype = torch.float16 if device == "mps" else torch.bfloat16
 
         if self._use_cond_pipeline:
             self.pipe = LTXConditionPipeline.from_pretrained(
                 self.MODEL_ID,
-                torch_dtype=torch.bfloat16,
+                torch_dtype=dtype,
                 cache_dir=cache_dir,
             )
         else:
             self.pipe = LTXImageToVideoPipeline.from_pretrained(
                 self.MODEL_ID,
-                torch_dtype=torch.bfloat16,
+                torch_dtype=dtype,
                 cache_dir=cache_dir,
             )
 
-        # Use sequential cpu offload for tighter VRAM (e.g. RTX 3060 12GB)
-        if torch.cuda.is_available():
+        if device == "mps":
+            # MPS: move directly to device (cpu_offload not supported)
+            self.pipe.to("mps")
+            print("Using MPS (Apple Silicon)")
+        elif device == "cuda":
             vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
             if vram_gb < 14:
                 self.pipe.enable_sequential_cpu_offload()
@@ -378,8 +396,10 @@ class LTXVideo2BBackend(I2VBackend):
                 self.pipe.enable_model_cpu_offload()
         else:
             self.pipe.enable_model_cpu_offload()
+
+        self._device = device
         self._loaded = True
-        print(f"{self.display_name} loaded.")
+        print(f"{self.display_name} loaded on {device}.")
 
     def generate(self, image, prompt, negative_prompt, height, width,
                  num_frames, guidance_scale, steps, seed, last_image=None):
@@ -390,6 +410,10 @@ class LTXVideo2BBackend(I2VBackend):
         if ltx_h * ltx_w > 512 * 768:
             ltx_h, ltx_w = 512, 768
 
+        device = getattr(self, "_device", _get_device())
+        # MPS generator must be on CPU (torch.Generator doesn't support MPS)
+        gen_device = "cpu" if device == "mps" else device
+
         gen_kwargs = dict(
             prompt=prompt,
             negative_prompt=negative_prompt,
@@ -398,7 +422,7 @@ class LTXVideo2BBackend(I2VBackend):
             num_frames=num_frames,
             guidance_scale=float(guidance_scale),
             num_inference_steps=int(steps),
-            generator=torch.Generator(device="cuda").manual_seed(seed),
+            generator=torch.Generator(device=gen_device).manual_seed(seed),
         )
 
         resized_img = image.resize((ltx_w, ltx_h))
