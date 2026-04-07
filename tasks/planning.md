@@ -22,6 +22,14 @@
 
 ## Recently Completed
 
+- **E2E integration test passed** — 50 segments → 3 branches → selection → 5 segments stitched → 30.2s video. Fixed stitcher for mpeg4 clips. Visualization generated. Committed 4496d26, pushed.
+- **Requirements + README with integration guide** — orchestrator/requirements.txt + README.md: setup, API docs, config table, alinakai integration code sample. Committed 4561580.
+- **Test suite: 32 tests all passing** — orchestrator/tests/test_engine.py: segment_db (12), embeddings (4), trajectory_engine (6), regen_scheduler (6), stitcher (4). Committed 1b7c8bb.
+- **Centralized config system** — orchestrator/config.py: Settings dataclass with env var overrides. Wired into app.py, scene_gen.py, frontend.py. Committed f5ab675.
+- **Pydantic API contract models** — orchestrator/models.py: 16 typed models for alinakai integration. app.py refactored to use response_model. Committed 714aee9.
+- **LLM scene description generator** — orchestrator/scene_gen.py: GPT-4o-mini generates setup/action prompts for any sentence. Disk cache, fallback mode. Integrated into pace_batch_render.py. Committed 694685d.
+- **50 clips ingested into segment DB** — All 50 batch renders (job 5389538) completed, fetched, and ingested via orchestrator/ingest.py. DB has 50 segments with embeddings. Committed 76b335e.
+- **Batch pre-render top 50 sentences** — SLURM array job 5389538 (tasks 0-49), one A100 per sentence. 3-segment pipeline, guidance 0.7, Perplexity neutral avatar. Output to cache_clips/. Committed 6c36709.
 - **Standalone orchestrator built** — `orchestrator/` package: segment vector DB, trajectory alignment engine, regen scheduler, video stitcher, FastAPI + Gradio UI. Committed 6a5125a, pushed. All components tested.
 - **3-segment pipeline validated** — Job 5268474: setup→action→reset per sentence. 721 frames, 30s at 24fps, 6.8 min inference. Neutral bald avatar with wigs/costumes/backgrounds. Guidance 0.7. Committed and pushed (f377828).
 - **Rich prompt + neutral avatar trajectory validated** — Job 5143042: guidance 0.7, bald avatar with wigs/accessories, stage-prop backgrounds. Avatar morphs (wigs, headbands, expressions, backgrounds) while preserving identity. Major improvement over generic prompts.
