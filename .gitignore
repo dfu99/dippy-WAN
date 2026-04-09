@@ -4,3 +4,10 @@ results/ltx2b_test_frame_*.png
 test_input.png
 cache_clips/
 data/
+
+# Large caches and venvs
+.hf_cache/
+.venv/
+*.incomplete
+*.so
+*.safetensors
